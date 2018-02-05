@@ -1,0 +1,418 @@
+<html>
+<head>
+<style>
+table
+{
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td
+{
+    text-align: left;
+    padding: 8px;
+}
+
+tr:nth-child(even){background-color: #f2f2f2}
+
+th
+{
+    background-color: #4CAF50;
+    color: white;
+}
+</style>
+</head>
+<body>
+
+<div style="float: right;">
+    <a id="message-syncing" style="color: red; display: none; float: right; font-size: 35px;">Syncing...</a><br>
+    <a id="message-syncing-complete" style="color: #4CAF50; display: none; float: right; font-size: 35px;">Synchronization Complete</a><br>
+    <a id="message-confirming" style="color: red; display: none; float: right; font-size: 25px">Checking Confirmations...</a><br>
+    <a id="message-sending" style="color: red; display: none; float: right; font-size: 25px"></a><br>
+    <a id="message-pow" style="color: red; display: none; float: right; font-size: 25px"></a><br>
+    <a id="message-reload" onclick="reload()" style="color: blue; display: none; float: right; font-size: 20px; text-decoration: underline">Reload</a>
+</div>
+
+<div id="panel-seed">
+    <h1>Login</h1>
+    Seed:<br>
+    <input type="text" id="seed" size="105" length="81">
+    <br><br>
+    <button type="button" onclick="login()">Use this seed</button>
+</div>
+
+<div id="panel-wallet" style="display: none;">
+    <h1>Wallet Explorer</h1>
+    <h3>Balance: <a id="balance">???</a></h3>
+    <h3>Confirmed Balance: <a id="confirmed-balance">???</a></h3>
+
+    <h2>Addresses</h2>
+    <div id="panel-addresses">
+    </div>
+
+    <h2>Transactions</h2>
+    <div id="panel-transactions">
+    </div>
+</div>
+
+</body>
+</html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<script type="text/javascript" src="../deb/curl.min.js"></script>
+<script type="text/javascript" src="../dist/iota_lightnode.browser.js"></script>
+
+<script>
+
+window.iota_lightnode.initializeIOTA(2, 3, 14);//Security, Depth, minWeightMagnitude
+window.iota_lightnode.setCurlLibrary(window.curl);
+
+var iota = window.iota_lightnode.getIOTA();
+console.log(iota);
+
+var seed;
+var receivingAddressFound = false;
+var refreshNecessary = true;
+
+
+iota.getNodeInfo(function(error, success)
+{
+    if (error)
+        console.error(error);
+    else
+        console.log(success);
+})
+
+
+
+function login()
+{
+    seed = $( "#seed" ).val();
+    $( "#seed" ).empty();
+
+    loadWallet();
+
+    $( "#panel-seed" ).hide("slow");
+    $( "#panel-wallet" ).show("slow");
+}
+
+
+
+function loadWallet()
+{
+    console.log("Loading wallet ...");
+
+    window.iota_lightnode.getAccountData(seed);
+
+    renderWallet();
+    checkConfirmations();
+}
+
+
+
+function renderWallet()
+{
+    /*if (!refreshNecessary)
+        return;*/
+
+    //Notifications
+
+    if (window.iota_lightnode.isSyncing())
+    {
+        $( "#message-syncing" ).show();
+        $( "#message-reload" ).hide();
+    }
+    else
+    {
+        $( "#message-syncing" ).hide();
+        $( "#message-syncing-complete" ).show("slow");
+        $( "#message-reload" ).show("slow");
+        if (!window.iota_lightnode.isCheckingConfirmations())
+            refreshNecessary = false;
+    }
+
+    if (window.iota_lightnode.isCheckingConfirmations())
+        $( "#message-confirming" ).show();
+    else
+        $( "#message-confirming" ).hide();
+
+
+    //Balance
+
+    $( "#balance" ).text(           window.iota_lightnode.getBalance() );
+    $( "#confirmed-balance" ).text( window.iota_lightnode.getConfirmedBalance() );
+
+
+    //Addresses
+    var addressList = window.iota_lightnode.getAddresses();
+
+    var content = '<table border="1" rules="all">';
+    content += '<tr><th>index</th><th>balance</th><th>confirmed balance</th><th>address</th><th>#transactions involved</th><th>Unused?</th><th>OK to receive funds with?</th><th>Status</th></tr>';
+
+    for (var i = 0; i < addressList.length; i++)
+    {
+        if (typeof addressList[i] == 'undefined')
+            continue;
+
+        var transactions = window.iota_lightnode.getTransactionsOfAddressIndex(i);
+
+        content += "<tr><td>" + i + "</td><td>" + addressList[i].balance + "</td><td>" + addressList[i].confirmedBalance + "</td><td>" + addressList[i].address + "</td><td>" + transactions.length + "</td>";
+
+        if (addressList[i].used == 'Unknown')
+            content += '<td>Unknown</td>';
+        else if (!addressList[i].used)
+            content += '<td style="color: #4CAF50">Unused</td>';
+        else
+            content += '<td style="color: red">Used</td>';
+
+        if (addressList[i].usedAsSent == 'Unknown')
+            content += '<td>Unknown</td>';
+        else if (!addressList[i].usedAsSent)
+            content += '<td style="color: #4CAF50">Yes</td>';
+        else
+            content += '<td style="color: red">No</td>';
+
+        if (addressList[i].updating)
+            content += '<td style="color: red">Updating...</td>';
+        else
+            content += '<td style="color: #4CAF50">Synced</td>';
+
+        content += '</tr>';
+
+        if (transactions.length > 0)//Render transactions of this address
+        {
+            content += '<tr><td colspan="8">';
+
+            content += '<a href="#" class="toggle"">Show / Hide <b>transactions</b> this address was involved in</a>';
+
+            content += renderTransactions(transactions, true);
+            content += '</td></tr>';
+        }
+
+        //Render bundles of this address
+        if (window.iota_lightnode.getBundlesOfAddressIndex(i).length > 0)
+        {
+            content += '<tr><td colspan="8">';
+
+            content += '<a href="#" class="toggle-bundles">Show / Hide <b>bundles</b> this address was involved in</a>';
+
+            content += renderBundles( window.iota_lightnode.getBundlesOfAddressIndex(i) );
+
+            content += '</td></tr>'
+        }
+    }
+
+    content += "</table>";
+
+    $( "#panel-addresses" ).html(content);
+
+
+    //Transactions
+
+    var transactionList = window.iota_lightnode.getTransactions();
+
+    $( "#panel-transactions" ).html(renderTransactions(transactionList, false));
+
+    //jQuery show/hide
+
+    $('.toggle').on('click', function(event){ $(this).parent('td').find('.transactions').toggle('slow'); event.preventDefault(); });
+    $('.toggle-bundles').on('click', function(event){ $(this).parent('td').find('.bundles').toggle('slow'); event.preventDefault(); });
+
+
+    if (window.iota_lightnode.isSyncing())
+        setTimeout(renderWallet, 10*1000);
+    else
+        setTimeout(renderWallet, 60*1000);
+}
+
+
+
+function renderTransactions(transactions, hide)
+{
+    if (hide)
+        var content = '<table class="transactions" style="display: none;" border="1" rules="all">';
+    else
+        var content = '<table class="transactions" border="1" rules="all">';
+        
+
+    content += '<tr><th>index</th><th>value</th><th>#bundles</th><th>tag</th><th>Direction</th><th>Time generated</th><th>Time attached to tangle</th><th>Confirmed?</th></tr>';
+
+    for (var i = 0; i < transactions.length; i++)
+        content += renderTransaction(i, transactions[i]);
+
+    content += "</table>";
+    return content;
+}
+
+
+
+function renderTransaction(index, transaction)
+{
+    var content = "<tr><td>" + index + "</td><td>";
+
+    if (transaction.inbound && transaction.outbound)
+        content += transaction.totalValueTransfered;
+    else
+        content += transaction.value;
+
+    content += "i</td><td>" + transaction.bundles.length + "</td><td>" + transaction.tag.replace(/9/g, " "); + "</td>";
+
+    if (transaction.inbound && transaction.outbound)
+        content += '<td>Self-send</td>';
+    else if (transaction.inbound)
+        content += '<td style="color: #4CAF50">Received</td>';
+    else
+        content += '<td style="color: red">Spent</td>';
+
+    var date = new Date(transaction.timestamp*1000);
+    content += '<td>' + date.toGMTString() + '</td>';
+
+    date = new Date(transaction.attachmentTimestamp);
+    content += '<td>' + date.toGMTString() + '</td>';
+
+    if (transaction.confirmationStatus === 'Unknown')
+        content += '<td>Requesting...</td>';
+    else if (transaction.confirmationStatus === 'Pending')
+        content += '<td style="color: red">Pending</td>';
+    else if (transaction.confirmationStatus === 'Rejected')
+        content += '<td style="color: red"><b>Rejected</b></td>';
+    else if (transaction.confirmationStatus === 'Confirmed')
+        content += '<td style="color: #4CAF50">Confirmed</td>';
+
+    content += '</tr>';
+
+    if (transaction.bundles.length > 0)//Render bundles of this address
+    {
+        content += '<tr><td colspan="8">';
+
+        if (transaction.bundles.length > 1)
+            content += '<a href="#" class="toggle-bundles">Show / Hide <b>bundles</b> of this transaction</a>';
+        else
+            content += '<a href="#" class="toggle-bundles">Show / Hide <b>bundle</b></a>';
+
+        content += renderBundles(transaction.bundles);
+        
+        content += '</td></tr>'
+    }
+
+    return content;
+}
+
+
+
+function renderBundles(bundles)
+{
+    var content = '<table class="bundles" style="display: none;" border="1" rules="all">';
+    content += '<tr><th>index</th><th>#transfers</th><th>bundle hash</th><th>attachmentTime</th><th>Confirmed?</th></tr>';
+
+    for (var j = 0; j < bundles.length; j++)
+    {
+        content += "<tr><td>" + j + "</td><td>" + bundles[j].length + "</td><td>" + bundles[j][0].bundle + "</td>";
+
+        date = new Date(bundles[j][0].attachmentTimestamp);
+        content += '<td>' + date.toGMTString() + '</td>';
+
+        if (bundles[j][0].confirmationStatus === 'Unknown')
+            content += '<td>Requesting...</td>';
+        else if (bundles[j][0].confirmationStatus === 'Pending')
+            content += '<td style="color: red">Pending</td>';
+        else if (bundles[j][0].confirmationStatus === 'Rejected')
+            content += '<td style="color: red"><b>Rejected</b></td>';
+        else if (bundles[j][0].confirmationStatus === 'Confirmed')
+            content += '<td style="color: #4CAF50">Confirmed</td>';
+        else if (bundles[j][0].confirmationStatus === 'Reattachment Confirmed')
+            content += '<td style="color: #0000D0">Reattachment Confirmed</td>';
+
+        content += '</tr>';
+
+        content += renderBundle(j, bundles[j]);
+
+        if (bundles[j][0].confirmationStatus === 'Pending')
+            content += '<td><a onclick="alert(1);"><b>Reattach bundle</b></a></td></tr>';
+        else
+            content += '</tr>';
+    }
+
+    content += "</table>";
+    return content;
+}
+
+
+
+function renderBundle(index, bundle)
+{
+    var content = '<tr><td rowspan="2"></td><td>Inputs</td><td colspan="2">';
+
+    content += '<table rules="all" border="1">';
+    content += '<tr><th>address</th><th>value</th><th>hash</th><th>tag</th></tr>';
+
+    //Inputs
+    for (var i=0;i < bundle.length;i++)
+    {
+        if (!window.iota_lightnode.isInputAddress(bundle, bundle[i].address))
+            continue;
+
+        content += '<tr></tr>';
+
+        if (window.iota_lightnode.isInAddressList(bundle[i].address))
+            content += '<td><b>' + bundle[i].address + '</b></td>';
+        else
+            content += '<td>' + bundle[i].address + '</td>';
+
+        content += '<td>' + bundle[i].value   + '</td>';
+        content += '<td>' + bundle[i].hash    + '</td>';
+        content += '<td>' + bundle[i].tag     + '</td>';
+        content += '</tr>';
+    }
+
+    content += '</table>';
+
+    content += '</td></tr><td>Outputs</td><td colspan="2">';
+
+    content += '<table rules="all" border="1">';
+    content += '<tr><th>address</th><th>value</th><th>hash</th><th>tag</th></tr>';
+
+    //Inputs
+    for (var i=0;i < bundle.length;i++)
+    {
+        if (!window.iota_lightnode.isOutputAddress(bundle, bundle[i].address))
+            continue;
+
+        content += '<tr></tr>';
+        
+        if (window.iota_lightnode.isInAddressList(bundle[i].address))
+            content += '<td><b>' + bundle[i].address + '</b></td>';
+        else
+            content += '<td>' + bundle[i].address + '</td>';
+
+        content += '<td>' + bundle[i].value   + '</td>';
+        content += '<td>' + bundle[i].hash    + '</td>';
+        content += '<td>' + bundle[i].tag     + '</td>';
+        content += '</tr>';
+    }
+
+    content += '</table>';
+
+    content += '</td>';
+    return content;
+}
+
+
+
+function checkConfirmations()
+{
+    if (!window.iota_lightnode.isSyncing())
+    {
+        window.iota_lightnode.checkConfirmations();
+        setTimeout(checkConfirmations, 20*1000);
+    }
+    else
+    {
+        window.iota_lightnode.checkConfirmations();
+        setTimeout(checkConfirmations, 5000);
+    }
+}
+
+
+</script>

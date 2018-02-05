@@ -1,0 +1,545 @@
+<html>
+<head>
+<style>
+table
+{
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td
+{
+    text-align: left;
+    padding: 8px;
+}
+
+tr:nth-child(even){background-color: #f2f2f2}
+
+th
+{
+    background-color: #4CAF50;
+    color: white;
+}
+
+.tooltip
+{
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext
+{
+    visibility: hidden;
+    width: 380px;
+    background-color: black;
+    color: #fff;
+    text-align: left;
+    border-radius: 6px;
+    padding: 5px 0;
+
+    position: absolute;
+    z-index: 1;
+}
+
+.tooltip:hover .tooltiptext
+{
+    visibility: visible;
+}
+</style>
+</head>
+<body>
+
+
+<div style="float: right;">
+    <a id="message-syncing" style="color: red; display: none; float: right; font-size: 35px;">Syncing...</a><br>
+    <a id="message-syncing-complete" style="color: #4CAF50; display: none; float: right; font-size: 35px;">Synchronization Complete</a><br>
+    <a id="message-confirming" style="color: red; display: none; float: right; font-size: 25px">Checking Confirmations...</a><br>
+    <a id="message-sending" style="color: red; display: none; float: right; font-size: 25px"></a><br>
+    <a id="message-pow" style="color: red; display: none; float: right; font-size: 25px"></a><br>
+    <a id="message-reload" href="#" onclick="reload()" style="color: blue; display: none; float: right; font-size: 20px; text-decoration: underline">Reload</a><br>
+</div>
+
+<div id="panel-seed">
+    <h1>Login</h1>
+    Seed:<br>
+    <input type="text" id="seed" size="105" length="81">
+    <br><br>
+    <button type="button" onclick="login()">Use this seed</button>
+    <button type="button" onclick="generate()">Generate seed</button>
+</div>
+
+<div id="panel-wallet" style="display: none;">
+    <h1>Wallet</h1>
+    <h3>Balance: <a id="balance">???</a></h3>
+    <h3>Confirmed Balance: <a id="confirmed-balance">???</a></h3>
+
+    <h2>Addresses</h2>
+    <div id="panel-addresses">
+    </div>
+
+    <h2>Transactions</h2>
+    <div id="panel-transactions">
+    </div>
+
+    <h2>Send</h2>
+    <div id="panel-send">
+        Recipient Address:<br>
+        <input type="text" id="recipient-address" size="115" length="90"><br>
+        Amount:<br>
+        <input type="text" id="amount" size="10" length="10"><br>
+        Tag:<br>
+        <input type="text" id="tag" size="30" length="27">
+    <br><br>
+    <button type="button" onclick="sendUsingIOTA()">Send iota using iota API</button>
+    <button type="button" onclick="sendUsingIOTA_lightnode()">Send iota using iota_lightnode</button>
+    </div>
+
+    <h2>Receive</h2>
+    <div id="panel-receive">
+    </div>
+</div>
+
+</body>
+</html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<script type="text/javascript" src="../dist/iota_lightnode.browser.js"></script>
+<script type="text/javascript" src="../deb/curl.min.js"></script>
+
+<script>
+
+window.iota_lightnode.initializeIOTA(2, 3, 14);//Security, Depth, minWeightMagnitude
+window.iota_lightnode.setCurlLibrary(window.curl);
+
+var iota = window.iota_lightnode.getIOTA();
+console.log(iota);
+
+var seed;
+var receivingAddressFound = false;
+var refreshNecessary = true;
+
+
+iota.getNodeInfo(function(error, success)
+{
+    if (error)
+        console.error(error);
+    else
+        console.log(success);
+})
+
+
+
+function login()
+{
+    seed = $( "#seed" ).val();
+    $( "#seed" ).empty();
+
+    loadWallet();
+
+    $( "#panel-seed" ).hide("slow");
+    $( "#panel-wallet" ).show("slow");
+}
+
+
+
+function generate()
+{
+    $( "#seed" ).val( window.iota_lightnode.generateSeedInsecurely() );
+}
+
+
+
+function loadWallet()
+{
+    console.log("Loading wallet ...");
+
+    window.iota_lightnode.getAccountData(seed)
+
+    renderWallet();
+    checkConfirmations();
+    reload();
+}
+
+
+
+function renderWallet()
+{
+    if (!refreshNecessary)
+        return;
+
+    //Notifications
+
+    if (window.iota_lightnode.isSyncing())
+    {
+        $( "#message-syncing" ).show();
+        $( "#message-syncing-complete" ).hide("slow");
+        $( "#message-reload" ).hide();
+    }
+    else
+    {
+        $( "#message-syncing" ).hide();
+        $( "#message-syncing-complete" ).show("slow");
+        $( "#message-reload" ).show("slow");
+    }
+
+    if (window.iota_lightnode.isCheckingConfirmations())
+        $( "#message-confirming" ).show();
+    else
+        $( "#message-confirming" ).hide();
+
+    if (window.iota_lightnode.isPerformingTransfers())
+    {
+        if (window.iota_lightnode.isPerformingTransfers() > 1)
+            $( "#message-sending" ).text("Attaching " + window.iota_lightnode.isPerformingTransfers() + " transactions");
+        else
+            $( "#message-sending" ).text("Attaching " + window.iota_lightnode.isPerformingTransfers() + " transaction");
+        $( "#message-sending" ).show("slow");
+    }
+    else
+        $( "#message-sending" ).hide("slow");
+
+    if (window.iota_lightnode.isPerformingProofOfWork())
+    {
+        if (window.iota_lightnode.isPerformingProofOfWork() > 1)
+            $( "#message-pow" ).text("Doing Proof of Work for " + window.iota_lightnode.isPerformingProofOfWork() + " transactions");
+        else
+            $( "#message-pow" ).text("Doing Proof of Work for " + window.iota_lightnode.isPerformingProofOfWork() + " transaction");
+        $( "#message-pow" ).show("slow");
+    }
+    else
+        $( "#message-pow" ).hide("slow");
+
+
+    //Balance
+
+    $( "#balance" ).text(           window.iota_lightnode.getBalance() );
+    $( "#confirmed-balance" ).text( window.iota_lightnode.getConfirmedBalance() );
+
+
+    //Addresses
+    var addressList = window.iota_lightnode.getAddresses();
+
+    var content = '<table border="1" rules="all">';
+    content += '<tr><th>index</th><th>balance</th><th>confirmed balance</th><th>address</th><th>Unused?</th><th>OK to receive funds with?</th><th>Status</th></tr>';
+
+    for (var i = 0; i < addressList.length; i++)
+    {
+        if (typeof addressList[i] == 'undefined')
+            continue;
+
+        content += "<tr><td>" + i + "</td><td>" + addressList[i].balance + "i</td><td>" + addressList[i].confirmedBalance + "i</td><td>" + addressList[i].address + "</td>";
+
+        if (addressList[i].used == 'Unknown')
+            content += '<td>Unknown</td>';
+        else if (!addressList[i].used)
+            content += '<td style="color: #4CAF50">Unused</td>';
+        else
+            content += '<td style="color: red">Used</td>';
+
+        if (addressList[i].usedAsSent == 'Unknown')
+            content += '<td>Unknown</td>';
+        else if (!addressList[i].usedAsSent)
+            content += '<td style="color: #4CAF50">Yes</td>';
+        else
+            content += '<td style="color: red">No</td>';
+
+        if (addressList[i].updating)
+            content += '<td style="color: red">Updating...</td>';
+        else
+            content += '<td style="color: #4CAF50">Synced</td>';
+
+        content += '</tr>';
+    }
+
+    content += "</table>";
+
+    $( "#panel-addresses" ).html(content);
+
+
+    //Transactions
+
+    var transactionList = window.iota_lightnode.getTransactions();
+
+    content = '<table border="1" rules="all">';
+    content += '<tr><th>index</th><th>value</th><th>tag</th><th>Direction</th><th>Time generated</th><th>Time attached to tangle</th><th>Confirmed?</th></tr>';
+
+    for (var i = 0; i < transactionList.length; i++)
+    {
+        content += "<tr><td>" + i + "</td><td>";
+
+        content += '<div class="tooltip">';
+
+        if (transactionList[i].inbound && transactionList[i].outbound)
+            content += transactionList[i].totalValueTransfered;
+        else
+            content += transactionList[i].value;
+
+        content += 'i<span class="tooltiptext">';
+
+        for (var j = 0;j < transactionList[i].bundles[0].length;j++)
+        {
+            if (transactionList[i].bundles[0][j].value != 0 && window.iota_lightnode.isInputAddress(transactionList[i].bundles[0], transactionList[i].bundles[0][j].address))
+                content += transactionList[i].bundles[0][j].value + 'i from: ' + transactionList[i].bundles[0][j].address.substring(0, 20) + '...<br>';
+        }
+
+        for (var j = 0;j < transactionList[i].bundles[0].length;j++)
+        {
+            if (transactionList[i].bundles[0][j].value != 0 && window.iota_lightnode.isOutputAddress(transactionList[i].bundles[0], transactionList[i].bundles[0][j].address))
+                content += transactionList[i].bundles[0][j].value + 'i to: ' + transactionList[i].bundles[0][j].address.substring(0, 20) + '...<br>';
+        }
+
+        content += '</span></div>';
+
+        content += "</td><td>" + transactionList[i].tag.replace(/9/g, " ") + "</td>";
+
+        if (transactionList[i].inbound && transactionList[i].outbound)
+            content += '<td>Self-send</td>';
+        else if (transactionList[i].inbound)
+            content += '<td style="color: #4CAF50">Received</td>';
+        else
+            content += '<td style="color: red">Spent</td>';
+
+        var date = new Date(transactionList[i].timestamp*1000);
+        content += '<td>' + date.toGMTString() + '</td>';
+
+        date = new Date(transactionList[i].attachmentTimestamp);
+        content += '<td>' + date.toGMTString() + '</td>';
+
+        if (transactionList[i].confirmationStatus === 'Unknown')
+            content += '<td>Requesting...</td>';
+        else if (transactionList[i].confirmationStatus === 'Pending')
+        {
+            content += '<td><font color="red">Pending</font>';
+            content += ' / <a href="#" onclick="reattach(\'' + transactionList[i].bundle + '\')">Reattach</a>';
+            content += '</td>';
+        }
+        else if (transactionList[i].confirmationStatus === 'Confirmed')
+            content += '<td style="color: #4CAF50">Confirmed</td>';
+        else if (transactionList[i].confirmationStatus === 'Rejected')
+            content += '<td style="color: red"><b>Rejected</b></td>';
+
+        content += '</tr>';
+    }
+
+    content += "</table>";
+
+    $( "#panel-transactions" ).html(content);
+
+
+    //Receive
+
+    if (!receivingAddressFound)
+    {
+        var addressList = window.iota_lightnode.getAddresses();
+
+        for (var i=0;i < addressList.length;i++)
+        {
+            if (typeof addressList[i] == 'undefined')
+                continue;
+
+            if (!addressList[i].usedAsSent && addressList[i].used)
+            {
+                receivingAddressFound = true;
+                $( "#panel-receive" ).html("You can use the following address to receive funds:<br><b>" + addressList[i].address + "</b>");
+                break;
+            }
+        }
+
+        if (!receivingAddressFound)
+            $( "#panel-receive" ).html("No unused address found so far. Please wait.");
+    }
+
+
+    if (window.iota_lightnode.isSyncing())
+        setTimeout(renderWallet, 500);
+    else
+        setTimeout(renderWallet, 5000);
+}
+
+
+
+function checkConfirmations()
+{
+    if (!window.iota_lightnode.isSyncing())
+    {
+        window.iota_lightnode.checkConfirmations();
+        setTimeout(checkConfirmations, 30*1000);
+    }
+    else
+    {
+        window.iota_lightnode.checkConfirmations();
+        setTimeout(checkConfirmations, 1000);
+    }
+}
+
+
+
+function sendUsingIOTA_lightnode()
+{
+    var recipientAddress = $( "#recipient-address" ).val();
+    var amount           = $( "#amount" ).val();
+    var tag              = $( "#tag" ).val();
+
+    if (window.iota_lightnode.getConfirmedBalance() < amount)
+    {
+        if (!confirm("You want to send more than is in your confirmed balance. The network might reject this transaction. To you want to continue anyway?"))
+            return;
+    }
+
+    
+    var preBundle = window.iota_lightnode.createPreBundle(recipientAddress, amount, tag/*, message*/);
+
+    if (!preBundle)
+    {
+        alert("Could not create pre-bundle! You might not have enough funds.");
+        return;
+    }
+
+
+    //Pre-Bundle creation complete
+    console.log("Pre-Bundle is ready to be send", preBundle)
+
+
+    //Create user dialog
+    var userDialog = "Your transaction is prepared.\n\n"
+    userDialog += "Sending " + preBundle.outputs[0].value + "i to " + preBundle.outputs[0].address.substring(0, 30) + "...\n\n";
+    userDialog += "Following addresses will be used:\n"
+
+    for (var i=0;i < preBundle.inputs.length;i++)
+        userDialog += preBundle.inputs[i].value +  "i from " + preBundle.inputs[i].address.substring(0, 35) + "...\n";
+
+    if (preBundle.remainder)//is undefined if no remainder is used
+        userDialog += "\nThe remainder of " + preBundle.remainder.value + "i will be transfered back to address " + preBundle.remainder.address.substring(0, 10) + "...\n";
+
+    userDialog += "\nAuthorize transaction?";
+
+    if (!confirm(userDialog))
+        return;
+
+
+    //Transaction authorized
+
+    window.iota_lightnode.sendPreBundle(seed, preBundle, function(error, attached)
+    {
+        if (error)
+            console.error(error);
+        else
+        {
+            console.log("Successfully attached your transaction to the tangle with bundle", attached);
+
+            if (confirm("Would you like to ensure that this transaction gets confirmed by promoting / reattaching it if necessary?"))
+            {
+                window.iota_lightnode.ensureBundleGetsConfirmed(attached, function(success)
+                {
+                    if (success)
+                        alert("Transaction confirmed.")
+                    else
+                        alert("Error! Transaction could not get confirmed.")
+                });
+            }
+        }
+    });
+}
+
+
+
+function sendUsingIOTA()
+{
+    var recipientAddress = $( "#recipient-address" ).val();
+    var amount           = $( "#amount" ).val();
+    var tag              = $( "#tag" ).val();
+
+    if (window.iota_lightnode.getConfirmedBalance() < amount)
+    {
+        if (!confirm("You want to send more than is in your confirmed balance. The network might reject this transaction. To you want to continue anyway?"))
+            return;
+    }
+
+    var transfers = [];
+
+    var transfer = {
+        'address': recipientAddress,
+        'value': parseInt(amount),
+        //'message': messageTrytes,
+        'tag': tag
+    };
+
+    transfers.push(transfer);
+
+
+    //Bundle creation complete
+    console.log("Bundle is ready to be send", transfers)
+
+
+    //Create user dialog
+    var userDialog = "Your transaction is prepared.\n\n"
+    userDialog += "Sending " + transfers[0].value + "i to " + transfers[0].address.substring(0, 30) + "...\n\n";
+
+    userDialog += "Authorize transaction?";
+
+    if (!confirm(userDialog))
+        return;
+
+
+    //Transaction authorized
+
+    window.iota_lightnode.sendTransfer(seed, transfers, function(error, attached)
+    {
+        if (error)
+            console.error(e);
+        else
+            console.log("Successfully attached your transaction to the tangle with bundle", attached);
+    });
+}
+
+
+
+function reattach(bundleID)
+{
+   var bundle = window.iota_lightnode.findBundle(bundleID);
+
+   if (typeof bundle !== 'undefined')
+   {
+        window.iota_lightnode.reattachBundle(bundle, function(success)
+        {
+            if (success)
+            {
+                if (confirm("Bundle has been reattached successfully.\n\nWould you like to ensure that this transaction gets confirmed by promoting / reattaching it if necessary?"))
+                {
+                    window.iota_lightnode.ensureBundleGetsConfirmed(bundle, function(success)
+                    {
+                        if (success)
+                            alert("Transaction confirmed.")
+                        else
+                            alert("Error! Transaction could not get confirmed.")
+                    });
+                }
+            }
+            else
+                alert("Error! Could not reattached bundle.")
+        });
+    }
+}
+
+
+
+function reload()
+{
+    if (window.iota_lightnode.isSyncing())
+    {
+        setTimeout(reload, 15*60*1000);
+        return;
+    }
+
+    refreshNecessary = true;
+    window.iota_lightnode.updateAddressesOneByOne(function (success) {
+        //alert('Addresses updated.');
+    });
+
+    setTimeout(reload, 10*60*1000);
+}
+
+
+
+</script>

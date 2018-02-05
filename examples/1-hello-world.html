@@ -1,0 +1,81 @@
+<html>
+<head>
+</head>
+<body>
+  <div id="message"></div>
+</body>
+</html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<script type="text/javascript" src="../dist/iota_lightnode.browser.js"></script>
+<script type="text/javascript" src="../deb/curl.min.js"></script>
+
+<script>
+
+var lightnode = window.iota_lightnode.initializeIOTA();
+
+lightnode.setCurlLibrary(window.curl);
+
+var seed = lightnode.generateSeedInsecurely();
+
+$( "#message" ).append( "Generated seed: ", seed, "<br>" );
+
+lightnode.calculateFirstAddress(seed, function(error, new_address)
+{
+    var address = new_address;
+    
+    $( "#message" ).append( "First address of above seed is: ", address, "<br><br>" );
+
+
+    var value   = 0;
+    var tag     = "HELLO9WORLD";//Has to be in Trytes. Only A-Z and 9 allowed!
+    var message = "Hello World!";
+
+    var transfer = [{
+        'address': address,
+        'value': parseInt(value),
+        'message': lightnode.toTrytes(message),
+        'tag': tag
+    }];
+
+    $( "#message" ).append( "Preparing a transaction to above address containing 0 IOTA with the tag 'HELLO9WORLD'.<br>" );
+    $( "#message" ).append( "The transaction contains the message 'Hello World!' encoded in Trytes which looks likes this: ", lightnode.toTrytes(JSON.stringify(message)), "<br><br>" );
+
+    $( "#message" ).append( "Sending transaction. Please wait...<br>" );
+    $( "#message" ).append( "Depending on the node we are connected to and the proof of work we have to submit this might take a few seconds to minutes.<br>" );
+
+
+
+    lightnode.sendTransfer(seed, transfer, function(error, attached_bundle)
+    {
+        if (error)
+        {
+            console.error(error);
+            $( "#message" ).append( "Error! Could not submit transaction! The node you are connecting to might be down.<br>" );
+        }
+        else
+        {
+            console.log("Successfully attached your transaction to the tangle with bundle", attached_bundle);
+
+            $( "#message" ).append( "Your transaction has been attached successfully!<br><br>" );
+            $( "#message" ).append( "The transaction hash is: ", attached_bundle[0].hash, "<br>" );
+
+            var transaction_hash = attached_bundle[0].hash;
+
+
+            $( "#message" ).append( "Promoting / Waiting for the network to confirm your transaction...<br>" );
+
+            //Check if transaction is confirmed
+            lightnode.ensureBundleGetsConfirmed(attached_bundle, function(success)
+            {
+              if (success)
+                  $( "#message" ).append( "Your transaction has been <b>confirmed</b> by the network!<br>" );
+              else
+                  $( "#message" ).append( "Error! Properly lost connection to the node!<br>" );
+            });
+        }
+    });
+});
+
+</script>

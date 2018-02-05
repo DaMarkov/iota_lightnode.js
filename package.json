@@ -1,0 +1,11 @@
+{
+  "name": "iota_lightnode.js",
+  "version": "0.4.7",
+  "license": "MIT",
+  "dependencies": {
+    "iota.lib.js": "0.4.7",
+    "ffi": "^2.2.0",
+    "xmlhttprequest": "^1.8.0",
+    "node-cache": "4.1.0"
+  }
+}

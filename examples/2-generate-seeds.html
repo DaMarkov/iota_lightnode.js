@@ -1,0 +1,59 @@
+<html>
+<head>
+<style>
+table
+{
+    border-collapse: collapse;
+    width: 70%;
+}
+
+th, td
+{
+    text-align: left;
+    padding: 8px;
+}
+
+tr:nth-child(even){background-color: #f2f2f2}
+
+th
+{
+    background-color: #4CAF50;
+    color: white;
+}
+</style>
+</head>
+<body>
+
+<h2>Seeds</h2>
+<div id="seeds">
+</div>
+
+</body>
+</html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<script type="text/javascript" src="../dist/iota_lightnode.browser.js"></script>
+
+<script>
+
+var iota_lightnode = window.iota_lightnode.initializeIOTA();
+
+var index   = 0;
+var content = '<table><tr><th>index</th><th>seed</th></tr>';
+
+var generator = setInterval(function()
+{
+    if (index >= 20)
+        clearInterval(generator);
+
+    var seed = iota_lightnode.generateSeedInsecurely();
+
+    content += '<tr><td>' + index + '</td><td>' + seed + '</td></tr>';
+    index++;
+
+    $( "#seeds" ).html( content + '</table>' );
+}, 500);
+
+
+</script>
