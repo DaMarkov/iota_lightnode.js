@@ -13,8 +13,8 @@ npm install
 
 
 ```js
-<script type="text/javascript" src="../dist/iota_lightnode.browser.js"></script>
-<script type="text/javascript" src="../deb/curl.min.js"></script>
+<script type="text/javascript" src="dist/iota_lightnode.browser.js"></script>
+<script type="text/javascript" src="deb/curl.min.js"></script>
 
 <script>
 
@@ -55,50 +55,83 @@ lightnode.calculateFirstAddress(seed, function(error, new_address)
 
 ## Reference
 
-- **[initializeIOTA](#initializeIOTA)**
-- **[setCurlLibrary](#setCurlLibrary)**
-- **[isRemoteProofOfWorkAvailable](#isRemoteProofOfWorkAvailable)**
-- **[getIOTA](#getIOTA)**
-- **[getProvider](#getProvider)**
-- **[setProvider](#setProvider)**
-- **[calculateAddress](#calculateAddress)**
-- **[calculateFirstAddress](#calculateFirstAddress)**
-- **[checkConfirmations](#checkConfirmations)**
-- **[enableLocalProofOfWork](#enableLocalProofOfWork)**
-- **[ensureBundleGetsConfirmed](#ensureBundleGetsConfirmed)**
-- **[findBundle](#findBundle)**
-- **[generateSeedInsecurely](#generateSeedInsecurely)**
-- **[getBalance](#getBalance)**
-- **[getConfirmedBalance](#getConfirmedBalance)**
-- **[getTransactions](#getTransactions)**
-- **[getAddresses](#getAddresses)**
-- **[getBundles](#getBundles)**
-- **[getBundlesOfAddress](#getBundlesOfAddress)**
-- **[getBundlesOfAddressIndex](#getBundlesOfAddressIndex)**
-- **[getTransactionsOfAddress](#getTransactionsOfAddress)**
-- **[getTransactionsOfAddressIndex](#getTransactionsOfAddressIndex)**
-- **[getAccountData](#getAccountData)**
-- **[isCheckingConfirmations](#isCheckingConfirmations)**
-- **[isSyncing](#isSyncing)**
-- **[isProofOfWorkLocal](#isProofOfWorkLocal)**
-- **[createPreBundle](#createPreBundle)**
-- **[reattachBundle](#reattachBundle)**
-- **[reattachTransaction](#reattachTransaction)**
-- **[sendTransfer](#sendTransfer)**
-- **[signPreBundle](#signPreBundle)**
-- **[sendPreBundle](#sendPreBundle)**
-- **[sendSignedBundle](#sendSignedBundle)**
-- **[toTrytes](#toTrytes)**
-- **[fromTrytes](#fromTrytes)**
-- **[isPerformingTransfers](#isPerformingTransfers)**
-- **[isPerformingProofOfWork](#isPerformingProofOfWork)**
-- **[isInputAddress](#isInputAddress)**
-- **[isOutputAddress](#isOutputAddress)**
-- **[isInAddressList](#isInAddressList)**
-- **[updateAddress](#updateAddress)**
-- **[updateAddressesOneByOne](#updateAddressesOneByOne)**
+- **[calculateAddress](#calculateaddress)**
+- **[calculateFirstAddress](#calculatefirstaddress)**
+- **[checkConfirmations](#checkconfirmations)**
+- **[createPreBundle](#createprebundle)**
+- **[enableLocalProofOfWork](#enablelocalproofofwork)**
+- **[ensureBundleGetsConfirmed](#ensurebundlegetsconfirmed)**
+- **[findBundle](#findbundle)**
+- **[fromTrytes](#fromtrytes)**
+- **[generateSeedInsecurely](#generateseedinsecurely)**
+- **[getBalance](#getbalance)**
+- **[getConfirmedBalance](#getconfirmedbalance)**
+- **[getTransactions](#gettransactions)**
+- **[getAddresses](#getaddresses)**
+- **[getBundles](#getbundles)**
+- **[getBundlesOfAddress](#getbundlesofaddress)**
+- **[getBundlesOfAddressIndex](#getbundlesofaddressindex)**
+- **[getTransactionsOfAddress](#gettransactionsofaddress)**
+- **[getTransactionsOfAddressIndex](#gettransactionsofaddressindex)**
+- **[getAccountData](#getaccountdata)**
+- **[initializeIOTA](#initializeiota)**
+- **[isCheckingConfirmations](#ischeckingconfirmations)**
+- **[isRemoteProofOfWorkAvailable](#isremoteproofofworkavailable)**
+- **[isSyncing](#issyncing)**
+- **[isProofOfWorkLocal](#isproofofworklocal)**
+- **[isPerformingTransfers](#isperformingtransfers)**
+- **[isPerformingProofOfWork](#isperformingproofofwork)**
+- **[isInputAddress](#isinputaddress)**
+- **[isOutputAddress](#isoutputaddress)**
+- **[isInAddressList](#isinaddresslist)**
+- **[getIOTA](#getiota)**
+- **[getProvider](#getprovider)**
+- **[setProvider](#setprovider)**
+- **[reattachBundle](#reattachbundle)**
+- **[reattachTransaction](#reattachtransaction)**
+- **[sendTransfer](#sendtransfer)**
+- **[setCurlLibrary](#setcurllibrary)**
+- **[signPreBundle](#signprebundle)**
+- **[sendPreBundle](#sendprebundle)**
+- **[sendSignedBundle](#sendsignedbundle)**
+- **[toTrytes](#totrytes)**
+- **[updateAddress](#updateaddress)**
+- **[updateAddressesOneByOne](#updateaddressesonebyone)**
 
 ---
+
+
+
+### `calculateAddress`
+
+Initializes iota_lightnode.js and iota.lib.js. This function has to be called before any other function of iota_lightnode.js can be called.
+
+#### Input
+```js
+window.iota_lightnode.calculateAddress(seed, index, total, checksum, security, callback(error, addresses))
+```
+
+1. **`seed`**: `81-trytes` seed used to generate the address.
+2. **`index`**: `integer` index of the (first) address to be generated. Set to 0 to obtain the first address of the seed, 1 to obtain the second, etc. Default: 0.
+3. **`total`**: `integer` number of addresses to be generated. Default: 1.
+4. **`checksum`**: `bool` Set to `true` to generate address with a checksum (90 `trytes` long). If set to `false`, addresses generated will lack a checksum. Default: `false`.
+5. **`security`**: `integer` security parameter that is used for the addresses. Default: The default was set when `initializeIOTA()` was called.
+5. **`callback`**: `function` This function will be called `total` number of times. The first parameter contains any error(s), the second an array of the addresses that have (so far) been generated.
+
+#### Return Value
+
+None
+
+#### Example
+
+```js
+var seed  = OFMEOSBNBTAXQTGBHLVRRPAMPYUXZAFBAIHMJQHCSVPUELJMHNCNMSTX9DWZH9INOU9OJAUTPOYOTRZKY;
+var total = 10;
+
+window.iota_lightnode.calculateAddress(seed, 0, total, true, 3, function(error, addresses) {
+	console.log(addresses.length, "have been generated so far:", addresses);
+});
+```
 
 
 
@@ -124,5 +157,8 @@ window.iota_lightnode.initializeIOTA(security, depth, minWeightMagnitude)
 ```js
 var lightnode = window.iota_lightnode.initializeIOTA();
 ```
+
+
+
 
 ---
