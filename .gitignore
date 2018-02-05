@@ -1,4 +1,3 @@
 *.sh
 node_modules
 for-browserify.js
-package-lock.json
