@@ -2,14 +2,14 @@
 
 ## Installation
 
+```
 git clone https://github.com/DaMarkov/iota_lightnode.js.git
 cd iota_lightnode.js
 npm install
+```
 
-# Documentation
 
 ## Getting Started
-
 
 
 ```js
@@ -48,6 +48,57 @@ lightnode.calculateFirstAddress(seed, function(error, new_address)
 
 </script>
 ```
+
+
+
+---
+
+## Reference
+
+- **[initializeIOTA](#initializeIOTA)**
+- **[setCurlLibrary](#setCurlLibrary)**
+- **[isRemoteProofOfWorkAvailable](#isRemoteProofOfWorkAvailable)**
+- **[getIOTA](#getIOTA)**
+- **[getProvider](#getProvider)**
+- **[setProvider](#setProvider)**
+- **[calculateAddress](#calculateAddress)**
+- **[calculateFirstAddress](#calculateFirstAddress)**
+- **[checkConfirmations](#checkConfirmations)**
+- **[enableLocalProofOfWork](#enableLocalProofOfWork)**
+- **[ensureBundleGetsConfirmed](#ensureBundleGetsConfirmed)**
+- **[findBundle](#findBundle)**
+- **[generateSeedInsecurely](#generateSeedInsecurely)**
+- **[getBalance](#getBalance)**
+- **[getConfirmedBalance](#getConfirmedBalance)**
+- **[getTransactions](#getTransactions)**
+- **[getAddresses](#getAddresses)**
+- **[getBundles](#getBundles)**
+- **[getBundlesOfAddress](#getBundlesOfAddress)**
+- **[getBundlesOfAddressIndex](#getBundlesOfAddressIndex)**
+- **[getTransactionsOfAddress](#getTransactionsOfAddress)**
+- **[getTransactionsOfAddressIndex](#getTransactionsOfAddressIndex)**
+- **[getAccountData](#getAccountData)**
+- **[isCheckingConfirmations](#isCheckingConfirmations)**
+- **[isSyncing](#isSyncing)**
+- **[isProofOfWorkLocal](#isProofOfWorkLocal)**
+- **[createPreBundle](#createPreBundle)**
+- **[reattachBundle](#reattachBundle)**
+- **[reattachTransaction](#reattachTransaction)**
+- **[sendTransfer](#sendTransfer)**
+- **[signPreBundle](#signPreBundle)**
+- **[sendPreBundle](#sendPreBundle)**
+- **[sendSignedBundle](#sendSignedBundle)**
+- **[toTrytes](#toTrytes)**
+- **[fromTrytes](#fromTrytes)**
+- **[isPerformingTransfers](#isPerformingTransfers)**
+- **[isPerformingProofOfWork](#isPerformingProofOfWork)**
+- **[isInputAddress](#isInputAddress)**
+- **[isOutputAddress](#isOutputAddress)**
+- **[isInAddressList](#isInAddressList)**
+- **[updateAddress](#updateAddress)**
+- **[updateAddressesOneByOne](#updateAddressesOneByOne)**
+
+---
 
 
 
