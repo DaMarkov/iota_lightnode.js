@@ -182,6 +182,29 @@ var lightnode = window.iota_lightnode.initializeIOTA();
 ```
 
 
+
+### `generateSeedInsecurely`
+
+Generates a seed (81 `trytes`). This functions is NOT cryptographic cryptographically secure! Do NOT use the function to generates seeds to create wallets and store a lot of IOTA on them!
+
+#### Input
+
+None.
+
+#### Return Value
+
+1. **`string`** - returns a string of length 81 which contains only the characters A-Z and 9.
+
+#### Example
+
+```js
+var seed = window.iota_lightnode.generateSeedInsecurely();
+console.log("New seed:", seed);
+});
+```
+
+
+
 ### `getIOTA`
 
 Returns the IOTA object of `iota.lib.js`.
@@ -201,6 +224,7 @@ window.iota_lightnode.getIOTA().getNewAddress(seed, {'index': index, 'checksum':
 	console.log(new_address, "generated with iota.lib.js within iota_lightnode");
 });
 ```
+
 
 
 ---
