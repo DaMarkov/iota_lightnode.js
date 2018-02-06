@@ -87,36 +87,36 @@ The folder `examples/` contains additional examples.
 - **[findBundle](#findbundle)**
 - **[fromTrytes](#fromtrytes)**
 - **[generateSeedInsecurely](#generateseedinsecurely)**
-- **[getBalance](#getbalance)**
-- **[getConfirmedBalance](#getconfirmedbalance)**
-- **[getTransactions](#gettransactions)**
+- **[getAccountData](#getaccountdata)**
 - **[getAddresses](#getaddresses)**
+- **[getBalance](#getbalance)**
 - **[getBundles](#getbundles)**
 - **[getBundlesOfAddress](#getbundlesofaddress)**
 - **[getBundlesOfAddressIndex](#getbundlesofaddressindex)**
-- **[getTransactionsOfAddress](#gettransactionsofaddress)**
-- **[getTransactionsOfAddressIndex](#gettransactionsofaddressindex)**
-- **[getAccountData](#getaccountdata)**
-- **[initializeIOTA](#initializeiota)**
-- **[isCheckingConfirmations](#ischeckingconfirmations)**
-- **[isRemoteProofOfWorkAvailable](#isremoteproofofworkavailable)**
-- **[isSyncing](#issyncing)**
-- **[isProofOfWorkLocal](#isproofofworklocal)**
-- **[isPerformingTransfers](#isperformingtransfers)**
-- **[isPerformingProofOfWork](#isperformingproofofwork)**
-- **[isInputAddress](#isinputaddress)**
-- **[isOutputAddress](#isoutputaddress)**
-- **[isInAddressList](#isinaddresslist)**
+- **[getConfirmedBalance](#getconfirmedbalance)**
 - **[getIOTA](#getiota)**
 - **[getProvider](#getprovider)**
-- **[setProvider](#setprovider)**
+- **[getTransactions](#gettransactions)**
+- **[getTransactionsOfAddress](#gettransactionsofaddress)**
+- **[getTransactionsOfAddressIndex](#gettransactionsofaddressindex)**
+- **[initializeIOTA](#initializeiota)**
+- **[isCheckingConfirmations](#ischeckingconfirmations)**
+- **[isInAddressList](#isinaddresslist)**
+- **[isInputAddress](#isinputaddress)**
+- **[isPerformingTransfers](#isperformingtransfers)**
+- **[isPerformingProofOfWork](#isperformingproofofwork)**
+- **[isProofOfWorkLocal](#isproofofworklocal)**
+- **[isRemoteProofOfWorkAvailable](#isremoteproofofworkavailable)**
+- **[isSyncing](#issyncing)**
+- **[isOutputAddress](#isoutputaddress)**
 - **[reattachBundle](#reattachbundle)**
 - **[reattachTransaction](#reattachtransaction)**
-- **[sendTransfer](#sendtransfer)**
-- **[setCurlLibrary](#setcurllibrary)**
-- **[signPreBundle](#signprebundle)**
 - **[sendPreBundle](#sendprebundle)**
 - **[sendSignedBundle](#sendsignedbundle)**
+- **[sendTransfer](#sendtransfer)**
+- **[setCurlLibrary](#setcurllibrary)**
+- **[setProvider](#setprovider)**
+- **[signPreBundle](#signprebundle)**
 - **[toTrytes](#totrytes)**
 - **[updateAddress](#updateaddress)**
 - **[updateAddressesOneByOne](#updateaddressesonebyone)**
@@ -127,7 +127,7 @@ The folder `examples/` contains additional examples.
 
 ### `calculateAddress`
 
-Initializes iota_lightnode.js and iota.lib.js. This function has to be called before any other function of iota_lightnode.js can be called.
+Generates addresses for a given seed.
 
 #### Input
 ```js
@@ -139,7 +139,7 @@ window.iota_lightnode.calculateAddress(seed, index, total, checksum, security, c
 3. **`total`**: `integer` number of addresses to be generated. Default: 1.
 4. **`checksum`**: `bool` Set to `true` to generate address with a checksum (90 `trytes` long). If set to `false`, addresses generated will lack a checksum. Default: `false`.
 5. **`security`**: `integer` security parameter that is used for the addresses. Default: The default was set when `initializeIOTA()` was called.
-5. **`callback`**: `function` This function will be called `total` number of times. The first parameter contains any error(s), the second an array of the addresses that have (so far) been generated.
+6. **`callback`**: `function` This function will be called `total` number of times. The first parameter contains any error(s), the second an array of the addresses that have (so far) been generated.
 
 #### Return Value
 
@@ -154,6 +154,538 @@ var total = 10;
 window.iota_lightnode.calculateAddress(seed, 0, total, true, 3, function(error, addresses) {
 	console.log(addresses.length, "have been generated so far:", addresses);
 });
+```
+
+
+
+### `calculateFirstAddress`
+
+Similar to `calculateAddress`. This function calculates the first address (including checksum) of a given seed.
+The security parameter of the generated address is the same when `initializeIOTA()` was called.
+
+#### Input
+```js
+window.iota_lightnode.calculateFirstAddress(seed, callback(error, addresses))
+```
+
+1. **`seed`**: `81-trytes` seed used to generate the address.
+2. **`callback`**: `function` This function will be called when the address has ben generated. The first parameter contains any error(s), the second a string with the generated address including the checksum (90 `trytes`).
+
+#### Return Value
+
+None
+
+#### Example
+
+```js
+var seed  = 'OFMEOSBNBTAXQTGBHLVRRPAMPYUXZAFBAIHMJQHCSVPUELJMHNCNMSTX9DWZH9INOU9OJAUTPOYOTRZKY';
+var total = 10;
+
+window.iota_lightnode.calculateFirstAddress(seed, function(error, addresses) {
+    console.log("First address is:", addresses);
+});
+```
+
+
+
+### `checkConfirmations`
+
+This function updates the confirmation status of the bundles `iota_lightnode` is aware of.
+I.e. `checkConfirmations` goes trough the bundle list returned by `getBundles` and updates the confirmation status of pending transactions.
+After calling `checkConfirmations` the function `isCheckingConfirmations` will return true as long as the API calls are being made.
+When all bundles have been updated `isCheckingConfirmations` will return false.
+Note that the bundle list can be filled up by calling `getAccountData` of `sendTransfer`.
+
+#### Input
+```js
+window.iota_lightnode.checkConfirmations()
+```
+
+#### Return Value
+
+None
+
+#### Example
+
+```js
+window.iota_lightnode.checkConfirmations();
+console.log("Checking confirmation status of transactions...");
+while (window.iota_lightnode.isCheckingConfirmations())
+    ;//Do something else
+console.log("Confirmation status updated!");
+```
+
+
+
+### `[createPreBundle]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `enableLocalProofOfWork`
+
+This function enables or disable the local proof of work.
+
+#### Input
+```js
+window.iota_lightnode.enableLocalProofOfWork(enable)
+```
+
+1. **`enable`**: `bool` Set to true to enable local proof of work. Set to false to disable local proof of work
+
+#### Return Value
+
+None
+
+#### Example
+
+```js
+window.iota_lightnode.isRemoteProofOfWorkAvailable(function(available) {//Check if the node we are connected to can perform the proof of work
+    if (available)//The node can to the proof of work
+        window.iota_lightnode.enableLocalProofOfWork(false);//OK, we don't have to do anything, let the node do the hard stuff
+    else//Node does not perform the proof of work
+        window.iota_lightnode.enableLocalProofOfWork(true);//We have to do the proof of work ourself
+});
+```
+
+
+
+### `ensureBundleGetsConfirmed`
+
+This functions ensures that a bundle get confirmed by promoting it.
+Here is a brief summary of the algorithm used:
+The function attaches transactions to the tangle which validate the bundle.
+After every attachment the functions sleeps for a few seconds in order to use not to many resources.
+After 1 minute an API call is made to check if the bundle is still consistent.
+If the bundle is inconsistent, a reattachment is performed and the reattached bundle starts getting promoted.
+After about 10 minutes a reattachment is performed in any case.
+
+#### Input
+```js
+window.iota_lightnode.ensureBundleGetsConfirmed(bundle, callback(success))
+```
+
+1. **`bundle`**: `object` a bundle as for example returned by `sendTransfer`. This is the bundle that will get promoted / reattached
+2. **`callback`**: `function` callback function which takes on parameter `success`. `success` will be `true` when the bundle or a reattachment of the bundle got confirmed by the network. If `success` is `false` an error occurred. This might be the case when the connection to the node got disconnected. Note that if `success` is `false` does NOT imply that the bundle did not get confirmed. It merely means that `iota_lightnode` could not determine the confirmation status of the bundle.
+
+#### Return Value
+
+None
+
+#### Example
+
+```js
+window.iota_lightnode.sendTransfer(seed, transfer, function(error, attached_bundle) {
+    if (error)
+        console.error(error);
+    else
+    {
+        //Make sure the transaction gets confirmed
+        window.iota_lightnode.ensureBundleGetsConfirmed(attached_bundle, function(success) {
+            if (success)
+                console.log( "Your transaction has been confirmed by the network!" );
+            else
+                console.log( "Error! Properly lost connection to the node!" );
+        });
+    }
+});
+```
+
+
+
+### `findBundle`
+
+Searches the bundle list of `iota_lightnode` for a bundle with the bundle hash that is specified.
+If there are multiple bundles with the same bundle hash in the list (as may be the case when a reattachment occurred), the first item in the list is returned.
+
+#### Input
+```js
+window.iota_lightnode.findBundle(bundleHash)
+```
+
+1. **`bundleHash`**: `string` of 81 `trytes`. The bundle hash that is being searched for.
+
+#### Return Value
+
+If a bundle with the specified bundle hash could be found, the bundle is returned as an `object`.
+If no bundle with the specified bundle hash could be found, `undefined` is returned.
+
+#### Example
+
+```js
+window.iota_lightnode.sendTransfer(seed, transfer, function(error, attached_bundle) {//Execute transactions
+    if (!error)
+    {
+        var bundle_hash = attached_bundle[0].bundle;//Get the bundle hash of the transaction which has been attached
+
+        //Find the bundle in the list
+        var bundleFound = window.iota_lightnode.findBundle(bundle_hash);
+
+        if (typeof bundleFound === 'undefined')
+            console.log( "Bundle could not be found!" );
+        else
+            console.log( "Found bundle", bundleFound );
+    }
+});
+```
+
+
+
+### `[fromTrytes]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `generateSeedInsecurely`
+
+Generates a seed (81 `trytes`). This functions is NOT cryptographic cryptographically secure! Do NOT use the function to generates seeds to create wallets and store a lot of IOTA on them!
+
+#### Input
+
+None.
+
+#### Return Value
+
+1. **`string`** - returns a string of length 81 which contains only the characters A-Z and 9.
+
+#### Example
+
+```js
+var seed = window.iota_lightnode.generateSeedInsecurely();
+    console.log("New seed:", seed);
+});
+```
+
+
+
+### `[getAccountData]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[getAddresses]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `getBalance`
+
+Returns the total balance (sum of all addresses). `getAccountData` should have been called before calling `getBalance` in order to obtain the addresses / bundles / balances / transactions of a given seed.
+Balance is defined as the confirmed balance including all pending transactions.
+For example if there are no pending transactions balance and confirmed balance are the same.
+If there are pending transactions `getBalance` returns the balance if all the pending transactions were actually confirmed.
+
+#### Input
+
+None.
+
+#### Return Value
+
+1. **`integer`** - returns the sum of the balances of all addresses in IOTA
+
+#### Example
+
+```js
+window.iota_lightnode.getAccountData(seed);
+//Wait until account data is loaded
+//Assume that there are no pending transactions and there are exactly two addresses connected with this seed
+//Address 0 has 100i, Address 1 has 50i
+window.iota_lightnode.getBalance();//150 is returned
+window.iota_lightnode.getconfirmedBalance();//150 is returned
+//Spent all 100i of address 0 by sending it to some third-party address
+window.iota_lightnode.getBalance();//50 is returned, since this will be the total balance if the pending transaction were to be confirmed
+window.iota_lightnode.getconfirmedBalance();//150 is returned, since the transaction has not been confirmed yet
+//After confirmation, address 0 has 0i, address 1 has 50i
+window.iota_lightnode.getBalance();//50 is returned
+window.iota_lightnode.getconfirmedBalance();//50 is returned, since the transaction got confirmed
+});
+```
+
+
+
+### `[getBundles]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[getBundlesOfAddress]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[getBundlesOfAddressIndex]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `getConfirmedBalance`
+
+Returns the total confirmed balance (sum of the confirmed balance of all addresses). `getAccountData` should have been called before calling `getBalance` in order to obtain the addresses / bundles / balances / transactions of a given seed.
+
+#### Input
+
+None.
+
+#### Return Value
+
+1. **`integer`** - returns the sum of the confirmed balances of all addresses in IOTA
+
+#### Example
+
+```js
+window.iota_lightnode.getAccountData(seed);
+//Wait until account data is loaded
+//Assume that there are no pending transactions and there are exactly two addresses connected with this seed
+//Address 0 has 100i, Address 1 has 50i
+window.iota_lightnode.getBalance();//150 is returned
+window.iota_lightnode.getconfirmedBalance();//150 is returned
+//Spent all 100i of address 0 by sending it to some third-party address
+window.iota_lightnode.getBalance();//50 is returned, since this will be the total balance if the pending transaction were to be confirmed
+window.iota_lightnode.getconfirmedBalance();//150 is returned, since the transaction has not been confirmed yet
+//After confirmation, address 0 has 0i, address 1 has 50i
+window.iota_lightnode.getBalance();//50 is returned
+window.iota_lightnode.getconfirmedBalance();//50 is returned, since the transaction got confirmed
+});
+```
+
+
+
+### `getIOTA`
+
+Returns the IOTA object of `iota.lib.js`.
+
+#### Input
+
+None.
+
+#### Return Value
+
+1. **`Object`** - returns the IOTA object of `iota.lib.js`.
+
+#### Example
+
+```js
+window.iota_lightnode.getIOTA().getNewAddress(seed, {'index': index, 'checksum': true, 'security': 2}, function(error, new_address) {
+    console.log(new_address, "generated with iota.lib.js within iota_lightnode");
+});
+```
+
+
+
+### `[getProvider]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[getTransactions]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[getTransactionsOfAddress]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[getTransactionsOfAddressIndex]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
 ```
 
 
@@ -183,47 +715,464 @@ var lightnode = window.iota_lightnode.initializeIOTA();
 
 
 
-### `generateSeedInsecurely`
+### `[isCheckingConfirmations]`
 
-Generates a seed (81 `trytes`). This functions is NOT cryptographic cryptographically secure! Do NOT use the function to generates seeds to create wallets and store a lot of IOTA on them!
+TODO
 
 #### Input
+```js
+TODO
+```
 
-None.
+TODO
 
 #### Return Value
 
-1. **`string`** - returns a string of length 81 which contains only the characters A-Z and 9.
+TODO
 
 #### Example
 
 ```js
-var seed = window.iota_lightnode.generateSeedInsecurely();
-	console.log("New seed:", seed);
-});
+TODO
 ```
 
 
 
-### `getIOTA`
+### `[isInAddressList]`
 
-Returns the IOTA object of `iota.lib.js`.
+TODO
 
 #### Input
+```js
+TODO
+```
 
-None.
+TODO
 
 #### Return Value
 
-1. **`Object`** - returns the IOTA object of `iota.lib.js`.
+TODO
 
 #### Example
 
 ```js
-window.iota_lightnode.getIOTA().getNewAddress(seed, {'index': index, 'checksum': true, 'security': 2}, function(error, new_address) {
-	console.log(new_address, "generated with iota.lib.js within iota_lightnode");
-});
+TODO
 ```
+
+
+
+### `[isInputAddress]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[isPerformingTransfers]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[isPerformingProofOfWork]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[isProofOfWorkLocal]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[isRemoteProofOfWorkAvailable]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[isSyncing]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[isOutputAddress]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[reattachBundle]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[reattachTransaction]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[sendPreBundle]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[sendSignedBundle]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[sendTransfer]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[setCurlLibrary]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[setProvider]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[signPreBundle]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[toTrytes]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[updateAddress]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
+
+
+### `[updateAddressesOneByOne]`
+
+TODO
+
+#### Input
+```js
+TODO
+```
+
+TODO
+
+#### Return Value
+
+TODO
+
+#### Example
+
+```js
+TODO
+```
+
 
 
 
