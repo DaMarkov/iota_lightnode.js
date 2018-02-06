@@ -1,0 +1,242 @@
+<html>
+<head>
+<style>
+table
+{
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td
+{
+    text-align: left;
+    padding: 8px;
+}
+
+tr:nth-child(even){background-color: #f2f2f2}
+
+th
+{
+    background-color: #4CAF50;
+    color: white;
+}
+</style>
+</head>
+<body>
+
+
+<div style="float: right;">
+    <a id="message-sending" style="color: red; display: none; float: right; font-size: 25px"></a><br>
+    <a id="message-pow" style="color: red; display: none; float: right; font-size: 25px"></a><br>
+</div>
+
+<div id="panel-seed">
+    <h1>Login</h1>
+    Seed:<br>
+    <input type="text" id="seed" size="105" length="81">
+    <br><br>
+    <button type="button" onclick="login()">Use this seed</button>
+    <button type="button" onclick="generate()">Generate seed</button>
+</div>
+
+<div id="panel-wallet" style="display: none;">
+
+
+    <h2>Addresses</h2>
+    <div id="panel-addresses">
+    </div>
+
+    <h2>Send</h2>
+    <div id="panel-send">
+        <h3>Inputs</h3>
+
+        Input Address 1:<br>
+        <input type="text" id="input1-address" size="115" length="90"><br>
+        Amount:<br>
+        <input type="text" id="input1-amount" size="10" length="10"><br>
+        <br>
+
+        Input Address 2:<br>
+        <input type="text" id="input2-address" size="115" length="90"><br>
+        Amount:<br>
+        <input type="text" id="input2-amount" size="10" length="10"><br>
+        <br>
+
+        Input Address 3:<br>
+        <input type="text" id="input3-address" size="115" length="90"><br>
+        Amount:<br>
+        <input type="text" id="input3-amount" size="10" length="10"><br>
+        <br>
+
+
+        <h3>Outputs</h3>
+
+        Output Address 1:<br>
+        <input type="text" id="output1-address" size="115" length="90"><br>
+        Amount:<br>
+        <input type="text" id="output1-amount" size="10" length="10"><br>
+        <br>
+
+        Output Address 2:<br>
+        <input type="text" id="output2-address" size="115" length="90"><br>
+        Amount:<br>
+        <input type="text" id="output2-amount" size="10" length="10"><br>
+        <br>
+
+        Output Address 3:<br>
+        <input type="text" id="output3-address" size="115" length="90"><br>
+        Amount:<br>
+        <input type="text" id="output3-amount" size="10" length="10"><br>
+        <br>
+
+        <button type="button" onclick="send()">Execute transaction</button>
+    </div>
+</div>
+
+</body>
+</html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<script type="text/javascript" src="../deb/curl.min.js"></script>
+<script type="text/javascript" src="../dist/iota_lightnode.browser.js"></script>
+
+<script>
+
+var lightnode = window.iota_lightnode.initializeIOTA(2, 3, 14);//Security, Depth, minWeightMagnitude
+
+lightnode.setCurlLibrary(window.curl);
+
+var seed;
+var addresses;
+
+
+
+function login()
+{
+    seed = $( "#seed" ).val();
+    $( "#seed" ).empty();
+
+    lightnode.calculateAddress(seed, 0, 10, false, 2, function(error, new_addresses)
+    {
+        addresses = new_addresses;
+        render(new_addresses);
+    });
+
+    $( "#panel-seed" ).hide("slow");
+    $( "#panel-wallet" ).show("slow");
+}
+
+
+
+function generate()
+{
+    $( "#seed" ).val( window.iota_lightnode.generateSeedInsecurely() );
+}
+
+
+
+function render(addresses)
+{
+    var content = '<table><tr><th>index</th><th>addresseses</th></tr>';
+
+    for (var i = 0;i < addresses.length;i++)
+    {
+        content += '<tr><td>' + i + '</td>';
+        content += '<td>' + addresses[i] + '</td>';
+        content += '</tr>';
+    }
+
+    $( "#panel-addresses" ).html( content + '</table>' );
+}
+
+
+
+function send()
+{
+    var inputs    = [];
+    var outputs   = [];
+
+    var preBundle = {
+        'inputs':      inputs,
+        'outputs':     outputs
+    };
+
+    if ($( "#input1-address" ).val())
+        preBundle.inputs.push( {'address': $( "#input1-address" ).val(), 'value': parseInt($( "#input1-amount" ).val())} );
+    if ($( "#input2-address" ).val())
+        preBundle.inputs.push( {'address': $( "#input2-address" ).val(), 'value': parseInt($( "#input2-amount" ).val())} );
+    if ($( "#input3-address" ).val())
+        preBundle.inputs.push( {'address': $( "#input3-address" ).val(), 'value': parseInt($( "#input3-amount" ).val())} );
+
+    if ($( "#output1-address" ).val())
+        preBundle.outputs.push( {'address': $( "#output1-address" ).val(), 'value': parseInt($( "#output1-amount" ).val())} );
+    if ($( "#output2-address" ).val())
+        preBundle.outputs.push( {'address': $( "#output2-address" ).val(), 'value': parseInt($( "#output2-amount" ).val())} );
+    if ($( "#output3-address" ).val())
+        preBundle.outputs.push( {'address': $( "#output3-address" ).val(), 'value': parseInt($( "#output3-amount" ).val())} );
+
+
+    //We need to find the addressIndex of the input addresses
+    for (var i=0;i < preBundle.inputs.length;i++)
+    {
+        for (var j=0;j < addresses.length;j++)
+        {
+            if (addresses[j] === preBundle.inputs[i].address)
+            {
+                preBundle.inputs[i].addressIndex = j;
+                preBundle.inputs[i].security     = 2;
+            }
+        }
+    }
+
+
+
+    //Pre-Bundle creation complete
+    console.log("Pre-Bundle is ready to be send", preBundle);
+
+
+    //Create user dialog
+    var userDialog = "Your transaction is prepared.\n\n"
+    userDialog += "Sending to:\n"
+
+    for (var i=0;i < preBundle.outputs.length;i++)
+        userDialog += preBundle.outputs[i].value + "i to " + preBundle.outputs[i].address.substring(0, 30) + "...\n";
+
+    userDialog += "Following addresses will be used:\n"
+
+    for (var i=0;i < preBundle.inputs.length;i++)
+        userDialog += preBundle.inputs[i].value +  "i from " + preBundle.inputs[i].address.substring(0, 30) + "...\n";
+
+    userDialog += "\nAuthorize transaction?";
+
+    if (!confirm(userDialog))
+        return;
+
+
+    //Transaction authorized
+
+    window.iota_lightnode.sendPreBundle(seed, preBundle, function(error, attached)
+    {
+        if (error)
+            console.error(error);
+        else
+        {
+            console.log("Successfully attached your transaction to the tangle with bundle", attached);
+
+            if (confirm("Would you like to ensure that this transaction gets confirmed by promoting / reattaching it if necessary?"))
+            {
+                window.iota_lightnode.ensureBundleGetsConfirmed(attached, function(success)
+                {
+                    if (success)
+                        alert("Transaction confirmed.")
+                    else
+                        alert("Error! Transaction could not get confirmed.")
+                });
+            }
+        }
+    });
+}
+
+
+</script>

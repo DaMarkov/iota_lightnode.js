@@ -617,7 +617,10 @@ function _getDataOfAddress(seed, security, index)
         iota.api.getBalances(addresses, 100, function(error, balances)
         {
             if (error)
+            {
+                console.error(error);
                 return;
+            }
 
             _addressList[index].confirmedBalance = parseInt(balances.balances[0]);
         })
@@ -691,10 +694,13 @@ function _updateDataOfAddress(address, callback, updateNext)
     _addressList[index].updating = true;
 
     //Update balance
-    iota.api.getBalances(address, 100, function(error, balances)
+    iota.api.getBalances([address], 100, function(error, balances)
     {
         if (error)
+        {
+            console.error(error);
             return;
+        }
 
         _addressList[index].confirmedBalance = parseInt(balances.balances[0]);
         _checkBalance();
@@ -856,255 +862,260 @@ function _updateDataOfAddress(address, callback, updateNext)
 // adapted from https://github.com/iotaledger/wallet/blob/master/ui/js/iota.lightwallet.js
 const localAttachToTangle = function(trunkTransaction, branchTransaction, minWeightMagnitude, trytes, callback)
 {
-        console.log("localAttachToTangle() called!");
-        if (_preparingBundles > 0)
-            _preparingBundles--;
-        _pow++;
+    console.log("localAttachToTangle() called!");
+    if (_preparingBundles > 0)
+        _preparingBundles--;
+    _pow++;
 
-        const ccurlHashing = function(trunkTransaction, branchTransaction, minWeightMagnitude, trytes, callback)
-        {
-            const iotaObj = iota;
+    const ccurlHashing = function(trunkTransaction, branchTransaction, minWeightMagnitude, trytes, callback)
+    {
+        const iotaObj = iota;
 
-            // inputValidator: Check if correct hash
-            if (!iotaObj.valid.isHash(trunkTransaction)) {
-                return callback(new Error("Invalid trunkTransaction"));
-            }
-
-            // inputValidator: Check if correct hash
-            if (!iotaObj.valid.isHash(branchTransaction)) {
-                return callback(new Error("Invalid branchTransaction"));
-            }
-
-            // inputValidator: Check if int
-            if (!iotaObj.valid.isValue(minWeightMagnitude)) {
-                return callback(new Error("Invalid minWeightMagnitude"));
-            }
-
-            var finalBundleTrytes = [];
-            var previousTxHash;
-            var i = 0;
-
-            function loopTrytes() {
-                getBundleTrytes(trytes[i], function(error) {
-                    if (error)
-                        return callback(error);
-                    else {
-                        i++;
-                        if (i < trytes.length)
-                            loopTrytes();
-                        else {
-                            // reverse the order so that it's ascending from currentIndex
-                            return callback(null, finalBundleTrytes.reverse());
-                        }
-                    }
-                });
-            }
-
-            function getBundleTrytes(thisTrytes, callback) {
-                // PROCESS LOGIC:
-                // Start with last index transaction
-                // Assign it the trunk / branch which the user has supplied
-                // IF there is a bundle, chain  the bundle transactions via
-                // trunkTransaction together
-
-                var txObject = iotaObj.utils.transactionObject(thisTrytes);
-                //txObject.tag = txObject.obsoleteTag;
-                txObject.attachmentTimestamp = Date.now();
-                txObject.attachmentTimestampLowerBound = 0;
-                txObject.attachmentTimestampUpperBound = MAX_TIMESTAMP_VALUE;
-                // If this is the first transaction, to be processed
-                // Make sure that it's the last in the bundle and then
-                // assign it the supplied trunk and branch transactions
-                if (!previousTxHash) {
-                    // Check if last transaction in the bundle
-                    if (txObject.lastIndex !== txObject.currentIndex) {
-                        return callback(new Error("Wrong bundle order. The bundle should be ordered in descending order from currentIndex"));
-                    }
-
-                    txObject.trunkTransaction  = trunkTransaction;
-                    txObject.branchTransaction = branchTransaction;
-                } else {
-                    // Chain the bundle together via the trunkTransaction (previous tx in the bundle)
-                    // Assign the supplied trunkTransaciton as branchTransaction
-                    txObject.trunkTransaction  = previousTxHash;
-                    txObject.branchTransaction = trunkTransaction;
-                }
-
-                var newTrytes = iotaObj.utils.transactionTrytes(txObject);
-
-                if (_curl.hasOwnProperty('pow'))//_curl is properly the WebGL implementation
-                {
-                    _curl.pow({trytes: newTrytes, minWeight: minWeightMagnitude}).then(function(nonce) {
-                        var returnedTrytes = newTrytes.substr(0, 2673-81).concat(nonce);
-                        var newTxObject= iotaObj.utils.transactionObject(returnedTrytes);
-
-                        // Assign the previousTxHash to this tx
-                        var txHash = newTxObject.hash;
-                        previousTxHash = txHash;
-
-                        finalBundleTrytes.push(returnedTrytes);
-                        callback(null);
-                    }).catch(callback);
-                }
-
-                else//Probably CCurl
-                {
-                    _curl.ccurl_pow.async(newTrytes, minWeightMagnitude, function(error, returnedTrytes)
-                    {
-                        if (error)
-                            return callback(error)
-                        else if (returnedTrytes == null)
-                            return callback('Interrupted')
-
-                        var newTxObject = iotaObj.utils.transactionObject(returnedTrytes)
-
-                        // Assign the previousTxHash to this tx
-                        var txHash = newTxObject.hash
-                        previousTxHash = txHash
-
-                        finalBundleTrytes.push(returnedTrytes)
-                        callback(null);
-                    })
-                }
-            }
-
-            loopTrytes()
+        // inputValidator: Check if correct hash
+        if (!iotaObj.valid.isHash(trunkTransaction)) {
+            return callback(new Error("Invalid trunkTransaction"));
         }
 
-
-        ccurlHashing(trunkTransaction, branchTransaction, minWeightMagnitude, trytes, function(error, success)
-        {
-            _pow--;
-            if (error)
-                console.log(error);
-            else
-                console.log(success);
-
-            if (callback)
-                return callback(error, success);
-            else
-                return success;
-        })
-    }
-
-    function _calculateAddresses(seed, index, total, checksum, security, addresses, callback)
-    {
-        iota.api.getNewAddress(seed, {'index': index, 'checksum': checksum, 'security': security, 'total': 1}, function(error, address)
-        {
-            if (error)
-                callback(error);
-            else
-            {
-                addresses[index] = address[0];
-                callback(undefined, addresses);
-
-                index++;
-                if (index < total)
-                    _calculateAddresses(seed, index, total, checksum, security, addresses, callback);
-            }
-        });
-    }
-
-    function _ensureHashGetsConfirmed(hash, callback, counter)
-    {
-        var _counter = 0 || counter;
-
-        //Check is a reattachment of our bundle got already confirmed
-        for (var i=0;i < _bundleList.length;i++)
-        {
-            if (_bundleList[i][0].bundle === hash)
-            {
-                if (_bundleList[i][0].confirmationStatus === 'Confirmed')//OK, we can stop working
-                {
-                    callback(true);
-                    return;
-                }
-            }
+        // inputValidator: Check if correct hash
+        if (!iotaObj.valid.isHash(branchTransaction)) {
+            return callback(new Error("Invalid branchTransaction"));
         }
 
-        iota.api.getLatestInclusion([hash], function(error, states)
-        {
-            if (error)
-            {
-                console.error(error);
-                callback(false);
-            }
-            else
-            {
-                if (states[0])
-                {
-                    //It we know of this transaction, mark as confirmed
-                    for (var i=0;i < _bundleList.length;i++)
-                    {
-                        if (_bundleList[i][0].hash === hash)
-                            _bundleList[i][0].confirmationStatus = 'Confirmed';
-                    }
+        // inputValidator: Check if int
+        if (!iotaObj.valid.isValue(minWeightMagnitude)) {
+            return callback(new Error("Invalid minWeightMagnitude"));
+        }
 
-                    callback(true);
-                }
+        var finalBundleTrytes = [];
+        var previousTxHash;
+        var i = 0;
+
+        function loopTrytes()
+        {
+            getBundleTrytes(trytes[i], function(error) {
+                if (error)
+                    return callback(error);
                 else
                 {
-                    var params = {'interrupt': false, 'delay': 10*1000};
-
-                    setTimeout(function() { params.interrupt = true; }, 60*1000);
-
-                    iota.api.promoteTransaction(hash, _depth, _minWeightMagnitude, [{ 'address': ('9').repeat(81), 'value': parseInt(0) }], params, function(error, attached)
-                    {
-                        _counter++;
-                        console.log("_ENSURE(): COUNTER:", _counter);
-
-                        if (error || _counter >= 10)//Also reattach after about 10 minutes
-                        {
-                            console.log(error);
-                            console.log("_ENSURE(): REATTACHING!!!");
-
-                            //Not promotable, reattach bundle
-                            _preparingBundles++;
-                            iota.api.replayBundle(hash, _depth, _minWeightMagnitude, function(error, attached_bundle)
-                            {
-                                if (error)//Reattaching failed
-                                {
-                                    console.error(error);
-                                    setTimeout(_ensureHashGetsConfirmed, 1000, hash, callback, _counter);//Promote original transaction
-                                }
-                                else
-                                {
-                                    _addBundle(attached_bundle);
-                                    _buildTransactionList();
-
-                                    console.log("Successfully attached your transaction to the tangle with bundle", attached_bundle);
-                                    _ensureHashGetsConfirmed(attached_bundle[0].hash, callback, 0);
-                                }
-                            });
-                        }
-                        else//Check if confirmed
-                            setTimeout(_ensureHashGetsConfirmed, 5000, hash, callback, _counter);
-                    });
+                    i++;
+                    if (i < trytes.length)
+                        loopTrytes();
+                    else {
+                        // reverse the order so that it's ascending from currentIndex
+                        return callback(null, finalBundleTrytes.reverse());
+                    }
                 }
+            });
+        }
+
+        function getBundleTrytes(thisTrytes, callback)
+        {
+            // PROCESS LOGIC:
+            // Start with last index transaction
+            // Assign it the trunk / branch which the user has supplied
+            // IF there is a bundle, chain  the bundle transactions via
+            // trunkTransaction together
+
+            var txObject = iotaObj.utils.transactionObject(thisTrytes);
+            //txObject.tag = txObject.obsoleteTag;
+            txObject.attachmentTimestamp = Date.now();
+            txObject.attachmentTimestampLowerBound = 0;
+            txObject.attachmentTimestampUpperBound = MAX_TIMESTAMP_VALUE;
+            // If this is the first transaction, to be processed
+            // Make sure that it's the last in the bundle and then
+            // assign it the supplied trunk and branch transactions
+            if (!previousTxHash) {
+                // Check if last transaction in the bundle
+                if (txObject.lastIndex !== txObject.currentIndex) {
+                    return callback(new Error("Wrong bundle order. The bundle should be ordered in descending order from currentIndex"));
+                }
+
+                txObject.trunkTransaction  = trunkTransaction;
+                txObject.branchTransaction = branchTransaction;
+            } else {
+                // Chain the bundle together via the trunkTransaction (previous tx in the bundle)
+                // Assign the supplied trunkTransaciton as branchTransaction
+                txObject.trunkTransaction  = previousTxHash;
+                txObject.branchTransaction = trunkTransaction;
             }
-        })
+
+            var newTrytes = iotaObj.utils.transactionTrytes(txObject);
+
+            if (_curl.hasOwnProperty('pow'))//_curl is properly the WebGL implementation
+            {
+                _curl.pow({trytes: newTrytes, minWeight: minWeightMagnitude}).then(function(nonce) {
+                    var returnedTrytes = newTrytes.substr(0, 2673-81).concat(nonce);
+                    var newTxObject= iotaObj.utils.transactionObject(returnedTrytes);
+
+                    // Assign the previousTxHash to this tx
+                    var txHash = newTxObject.hash;
+                    previousTxHash = txHash;
+
+                    finalBundleTrytes.push(returnedTrytes);
+                    callback(null);
+                }).catch(callback);
+            }
+
+            else//Probably CCurl
+            {
+                _curl.ccurl_pow.async(newTrytes, minWeightMagnitude, function(error, returnedTrytes)
+                {
+                    if (error)
+                        return callback(error)
+                    else if (returnedTrytes == null)
+                        return callback('Interrupted')
+
+                    var newTxObject = iotaObj.utils.transactionObject(returnedTrytes)
+
+                    // Assign the previousTxHash to this tx
+                    var txHash = newTxObject.hash
+                    previousTxHash = txHash
+
+                    finalBundleTrytes.push(returnedTrytes)
+                    callback(null);
+                })
+            }
+        }
+
+        loopTrytes()
     }
 
-    //
-    function _reattachBundle(bundle, callback)
+
+    ccurlHashing(trunkTransaction, branchTransaction, minWeightMagnitude, trytes, function(error, success)
     {
-        _preparingBundles++;
-        iota.api.replayBundle(bundle[0].hash, _depth, _minWeightMagnitude, function(error, attached_bundle)
+        _pow--;
+        if (error)
+            console.log(error);
+        else
+            console.log(success);
+
+        if (callback)
+            return callback(error, success);
+        else
+            return success;
+    })
+}
+
+//
+function _calculateAddresses(seed, index, total, checksum, security, addresses, callback)
+{
+    iota.api.getNewAddress(seed, {'index': index, 'checksum': checksum, 'security': security, 'total': 1}, function(error, address)
+    {
+        if (error)
+            callback(error);
+        else
         {
-            if (!error)
+            addresses[index] = address[0];
+            callback(undefined, addresses);
+
+            index++;
+            if (index < total)
+                _calculateAddresses(seed, index, total, checksum, security, addresses, callback);
+        }
+    });
+}
+
+//
+function _ensureHashGetsConfirmed(hash, callback, counter)
+{
+    var _counter = 0 || counter;
+
+    //Check is a reattachment of our bundle got already confirmed
+    for (var i=0;i < _bundleList.length;i++)
+    {
+        if (_bundleList[i][0].bundle === hash)
+        {
+            if (_bundleList[i][0].confirmationStatus === 'Confirmed')//OK, we can stop working
             {
-                _addBundle(attached_bundle);
-                _buildTransactionList();
+                callback(true);
+                return;
+            }
+        }
+    }
+
+    iota.api.getLatestInclusion([hash], function(error, states)
+    {
+        if (error)
+        {
+            console.error(error);
+            callback(false);
+        }
+        else
+        {
+            if (states[0])
+            {
+                //It we know of this transaction, mark as confirmed
+                for (var i=0;i < _bundleList.length;i++)
+                {
+                    if (_bundleList[i][0].hash === hash)
+                        _bundleList[i][0].confirmationStatus = 'Confirmed';
+                }
+
                 callback(true);
             }
             else
-                callback(false);
-        });
-    }
+            {
+                var params = {'interrupt': false, 'delay': 10*1000};
+
+                setTimeout(function() { params.interrupt = true; }, 60*1000);
+
+                iota.api.promoteTransaction(hash, _depth, _minWeightMagnitude, [{ 'address': ('9').repeat(81), 'value': parseInt(0) }], params, function(error, attached)
+                {
+                    _counter++;
+                    console.log("_ENSURE(): COUNTER:", _counter);
+
+                    if (error || _counter >= 10)//Also reattach after about 10 minutes
+                    {
+                        console.log(error);
+                        console.log("_ENSURE(): REATTACHING!!!");
+
+                        //Not promotable, reattach bundle
+                        _preparingBundles++;
+                        iota.api.replayBundle(hash, _depth, _minWeightMagnitude, function(error, attached_bundle)
+                        {
+                            if (error)//Reattaching failed
+                            {
+                                console.error(error);
+                                setTimeout(_ensureHashGetsConfirmed, 1000, hash, callback, _counter);//Promote original transaction
+                            }
+                            else
+                            {
+                                _addBundle(attached_bundle);
+                                _buildTransactionList();
+
+                                console.log("Successfully attached your transaction to the tangle with bundle", attached_bundle);
+                                _ensureHashGetsConfirmed(attached_bundle[0].hash, callback, 0);
+                            }
+                        });
+                    }
+                    else//Check if confirmed
+                        setTimeout(_ensureHashGetsConfirmed, 5000, hash, callback, _counter);
+                });
+            }
+        }
+    })
+}
+
+//
+function _reattachBundle(bundle, callback)
+{
+    _preparingBundles++;
+    iota.api.replayBundle(bundle[0].hash, _depth, _minWeightMagnitude, function(error, attached_bundle)
+    {
+        if (!error)
+        {
+            _addBundle(attached_bundle);
+            _buildTransactionList();
+            callback(true);
+        }
+        else
+            callback(false);
+    });
+}
 
 
 
-
+//
 module.exports.initializeIOTA = function(security, depth, minWeightMagnitude)
 {
     iota = new iotaLib()
@@ -1187,7 +1198,8 @@ module.exports.setProvider = function(provider) {
 module.exports.calculateAddress = function(seed, index, total, checksum, security, callback) {
     index    = index    || 0;
     total    = total    || 1;
-    checksum = checksum || true;
+    if (typeof checksum === 'undefined')
+        checksum = true;
     security = security || _security;
 
     var addresses = [];

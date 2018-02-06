@@ -38,13 +38,13 @@ var seed = lightnode.generateSeedInsecurely();//Generate seed (Seeds generated b
 
 lightnode.calculateFirstAddress(seed, function(error, new_address)//Generate the first address of this seed
 {
-	//Attach address to tangle
+    //Attach address to tangle
     var transfer = [{//Transfer to be attached to the tangle
         'address': new_address,//Recipient address (our own)
         'value': parseInt(0),//Number of IOTA to be transacted
     }];
 
-    lightnode.sendTransfer(seed, transfer, function(error, attached_bundle)//Prepare bundle, do tip selection, perform proof of work and attach to tangle
+   	lightnode.sendTransfer(seed, transfer, function(error, attached_bundle)//Prepare bundle, do tip selection, perform proof of work and attach to tangle
     {
         if (error)//Either invalid transfer or node is down
         {
@@ -61,16 +61,16 @@ lightnode.calculateFirstAddress(seed, function(error, new_address)//Generate the
 
 </script>
 ```
-The folder examples/ contains additional examples.
+The folder `examples/` contains additional examples.
 
 ## Structure
 
-`bin/` contains the compiled version of ccurl for Windows/Mac/Linux 64-bit.
-`deb/` contains dependencies used in examples. Most noticeable `curl.min.js` which is used to perform the proof of work in browser.
-`dist/` iota_lightnode browser and `node.js` version as well as `mnemonic.js` to convert seeds in a readable format
-`examples/` example files
-`proxy-server/` proxy server using `node.js`. This server connects to a node and acts as a cache.
-`src/` additional source code of `iota_lightnode.js`
+1. `bin/` contains the compiled version of ccurl for Windows/Mac/Linux 64-bit.
+2. `deb/` contains dependencies used in examples. Most noticeable `curl.min.js` which is used to perform the proof of work in browser.
+3. `dist/` iota_lightnode browser and `node.js` version as well as `mnemonic.js` to convert seeds in a readable format
+4. `examples/` example files
+5. `proxy-server/` proxy server using `node.js`. This server connects to a node and acts as a cache.
+6. `src/` additional source code of `iota_lightnode.js`
 
 
 
@@ -148,7 +148,7 @@ None
 #### Example
 
 ```js
-var seed  = OFMEOSBNBTAXQTGBHLVRRPAMPYUXZAFBAIHMJQHCSVPUELJMHNCNMSTX9DWZH9INOU9OJAUTPOYOTRZKY;
+var seed  = 'OFMEOSBNBTAXQTGBHLVRRPAMPYUXZAFBAIHMJQHCSVPUELJMHNCNMSTX9DWZH9INOU9OJAUTPOYOTRZKY';
 var total = 10;
 
 window.iota_lightnode.calculateAddress(seed, 0, total, true, 3, function(error, addresses) {
@@ -199,7 +199,7 @@ None.
 
 ```js
 var seed = window.iota_lightnode.generateSeedInsecurely();
-console.log("New seed:", seed);
+	console.log("New seed:", seed);
 });
 ```
 
