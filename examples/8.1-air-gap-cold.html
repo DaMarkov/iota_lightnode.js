@@ -1,0 +1,238 @@
+<html>
+<head>
+<style>
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 250px;
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+
+    position: absolute;
+    z-index: 1;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+}
+</style>
+</head>
+<body>
+
+<div id="panel-seed">
+    <h1>Cold Storage - Secret</h1>
+    Seed:<br>
+    <input type="text" id="seed" size="105" maxlength="81"><br>
+    <br>
+    <button type="button" onclick="generate()">Generate seed</button>
+    <br>
+    <h2>Construct Pre-Bundle</h2>
+    <div id="panel-send">
+    Input Address:<br>
+    <input type="text" id="input-address" size="115" maxlength="90"><br>
+    <div class="tooltip">Index of address:<span class="tooltiptext">What is the index of this address? If this is the first address of this seed then the index is 0.</span></div><br>
+    <input type="text" id="input-key-index" size="5" maxlength="5" value="0"><br>
+    <div class="tooltip">Security:<span class="tooltiptext">Security parameter. Can be 1, 2 or 3. Default: 2. Enter the security parameter the address was created with.</span></div><br>
+    <input type="text" id="input-security" size="1" maxlength="1" value="2"><br>
+    Amount:<br>
+    <input type="text" id="input-amount" size="10" maxlength="10" value="0"><br>
+    <br><br>
+    Recipient Address:<br>
+    <input type="text" id="output-address" size="115" maxlength="90"><br>
+    Amount:<br>
+    <input type="text" id="output-amount" size="10" maxlength="10" value="0"><br>
+    Tag:<br>
+    <input type="text" id="tag" size="30" length="27"><br>
+    <br><br>
+    Remainder Address:<br>
+    <input type="text" id="remainder-address" size="115" maxlength="90"><br>
+    Amount:<br>
+    <input type="text" id="remainder-amount" size="10" maxlength="10" value="0"><br>
+    <br><br>
+    <button type="button" onclick="createPreBundle()">Construct Pre-Bundle</button>
+    <br><br>
+    Pre-Bundle:<br>
+    <textarea id="preBundle" rows="7" cols="117"></textarea>
+    <br><br>
+    <button type="button" onclick="sign()">Sign Pre-Bundle with your seed</button>
+
+<div id="panel-signed" style="display: none;">
+    <h1>Cold Storage - Transfer to air-gapped hot storage</h1>
+    Signed Bundle:<br>
+    <textarea id="signed-Bundle" rows="10" cols="150"></textarea>
+    <br><br>
+    The following qr code contains the signed bundle in compressed form
+    <br><br>
+    <div style="margin-left: 50px" id="qrcode"></div>
+    <br><br>
+    Scan these qr codes with a device that is connected to the internet and attach the bundle to the tangle.<br>
+    Note that these qr codes do not contain any secret information like the seed or private keys,<br>
+    only the bundle which is signed with the private key.<br>
+    When attached to tangle this will be public information.<br>
+    <br><br>
+</div>
+
+</body>
+</html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<script type="text/javascript" src="../deb/qrcode.js"></script>
+<script type="text/javascript" src="../deb/lz-string.js"></script>
+<script type="text/javascript" src="../dist/iota_lightnode.browser.js"></script>
+
+<script>
+
+window.iota_lightnode.initializeIOTA(2);//Security
+
+
+
+function createPreBundle()
+{
+    var inputAddress = $( "#input-address" ).val();
+    var inputAmount  = $( "#input-amount" ).val();
+
+    var outputAddress = $( "#output-address" ).val();
+    var outputAmount  = $( "#output-amount" ).val();
+
+    var remainderAddress = $( "#remainder-address" ).val();
+    var remainderAmount  = $( "#remainder-amount" ).val();
+
+    var tag = $( "#tag" ).val();
+
+    if (parseInt(inputAmount) !== parseInt(outputAmount) + parseInt(remainderAmount))
+    {
+        alert('Input amount must be output amount + remainder amount!');
+        return;
+    }
+
+
+    var inputs    = [];
+    var outputs   = [];
+
+    var preBundle = {
+        'inputs':      inputs,
+        'outputs':     outputs
+    };
+
+
+    var transfer = {
+        'address': inputAddress,
+        'value': parseInt(inputAmount),
+        'addressIndex': 0,
+        'security':     2,
+    };
+
+    preBundle.inputs.push(transfer);
+
+
+    var transfer = {
+        'address': outputAddress,
+        'value': parseInt(outputAmount),
+        'tag': tag
+    };
+
+    preBundle.outputs.push(transfer);
+
+
+    if (remainderAddress)
+    {
+        preBundle.remainder = {
+            'address': remainderAddress,
+            'value': parseInt(remainderAmount)
+        };
+    }
+
+
+    //Pre-Bundle creation complete
+    console.log("Pre-Bundle is ready", preBundle)
+
+
+    //Create user dialog
+    var userDialog = "Your transaction is prepared.\n\n"
+    userDialog += "Sending " + preBundle.outputs[0].value + "i to " + preBundle.outputs[0].address.substring(0, 30) + "...\n\n";
+    userDialog += "Following address will be used:\n"
+    userDialog += preBundle.inputs[0].value +  "i from " + preBundle.inputs[0].address.substring(0, 35) + "...\n";
+
+    if (preBundle.remainder)//is undefined if no remainder is used
+        userDialog += "\nThe remainder of " + preBundle.remainder.value + "i will be transfered back to address " + preBundle.remainder.address.substring(0, 10) + "...\n";
+
+    userDialog += "\nTransaction OK?";
+
+    if (!confirm(userDialog))
+        return;
+
+
+    //Transaction authorized
+
+
+    $( "#preBundle" ).val( JSON.stringify( preBundle ) );
+}
+
+
+function sign()
+{
+    var seed = $( "#seed" ).val();
+
+    var preBundle = JSON.parse( $( "#preBundle" ).val() );
+
+    window.iota_lightnode.signPreBundle(seed, preBundle, function(error, signedBundle)
+    {
+        if (error)
+            alert('Could not sign pre bundle!')
+        else if (signedBundle)
+        {
+            $( "#signed-Bundle" ).val(signedBundle);
+            $( "#panel-signed" ).show("slow");
+
+            var compressed = LZString.compressToEncodedURIComponent(signedBundle.toString());
+
+            $( "#qrcode" ).html("");
+            var qrcodes = [];
+
+            const maxCharactersInQRCode = 1200;
+            var numOfQRCodes = Math.ceil(compressed.length / maxCharactersInQRCode);
+            var Length = Math.floor(compressed.length / numOfQRCodes);
+
+            for (var i=0; i < numOfQRCodes;i++)
+            {
+                if (i < numOfQRCodes)
+                    var part = compressed.slice(i*Length, (i+1)*Length-1);
+                else
+                    var part = compressed.slice(i*Length, compressed.length-1);
+
+                qrcodes.push( part );
+
+                new QRCode(document.getElementById("qrcode"), {
+                    text: part,
+                    width:  512,    
+                    height: 512,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.L
+                });
+
+                $( "#qrcode" ).append("<br><br><br><br><br><br><br><br>");
+            }
+
+            console.log("QRCode is:", qrcodes);
+        }
+    });
+}
+
+
+function generate()
+{
+    $( "#seed" ).val( window.iota_lightnode.generateSeedInsecurely() );
+}
+
+
+
+</script>

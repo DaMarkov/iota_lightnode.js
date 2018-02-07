@@ -1,0 +1,60 @@
+<html>
+<head>
+</head>
+<body>
+
+<div id="panel-seed">
+    <h1>Hot Storage</h1>
+    Signed Bundle:<br>
+    <textarea id="signed-Bundle" rows="10" cols="150"></textarea>
+    <br><br>
+    <button type="button" onclick="transfer()">Execute Transaction</button>
+</div>
+
+</body>
+</html>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+<script type="text/javascript" src="../deb/curl.min.js"></script>
+<script type="text/javascript" src="../dist/iota_lightnode.browser.js"></script>
+
+<script>
+
+window.iota_lightnode.initializeIOTA(2, 3, 14);//Security
+
+window.iota_lightnode.setCurlLibrary(window.curl);
+
+
+function transfer()
+{
+    var signedBundle = $( "#signed-Bundle" ).val();
+
+    window.iota_lightnode.sendSignedBundle(signedBundle, function(error, attachedBundle)
+    {
+        if (error)
+        {
+            console.error(error);
+            alert("Error bundle could not be attached! Are you connected to a node?");
+        }
+        else if (attachedBundle)
+        {
+            console.log("Attached Bundle:", attachedBundle);
+            alert("Bundle has been attached.");
+
+            if (confirm("Would you like to ensure that this transaction gets confirmed by promoting / reattaching it if necessary?"))
+            {
+                window.iota_lightnode.ensureBundleGetsConfirmed(attachedBundle, function(success)
+                {
+                    if (success)
+                        alert("Transaction confirmed.")
+                    else
+                        alert("Error! Transaction could not get confirmed.")
+                });
+            }
+        }
+    });
+}
+
+
+</script>

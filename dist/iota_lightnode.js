@@ -1,6 +1,9 @@
 const iotaLib      = require("iota.lib.js");
 const apiCommands  = require('../src/apiCommands.js');
 const makeRequest2 = require('../src/makeRequest2.js');
+const Bundle       = require('../src/bundle.js')
+const Signing      = require("../src/signing.js");
+const Converter    = require("../src/converter");
 
 
 const MAX_TIMESTAMP_VALUE = (Math.pow(3,27) - 1) / 2 // from curl.min.js
@@ -216,7 +219,9 @@ function _buildTransactionList()
 
             transaction.timestamp           = _bundleList[i][j].timestamp;
             transaction.attachmentTimestamp = _bundleList[i][j].attachmentTimestamp;
-            transaction.tag                 = _bundleList[i][j].tag;
+            
+            if (_bundleList[i][j].value > 0)
+                transaction.tag = _bundleList[i][j].tag;
 
             if (_isInAddressList(_bundleList[i][j].address))
             {
@@ -340,7 +345,7 @@ function _buildTransactionList()
 //
 function _obtainConfirmations()
 {
-    var index = 0;
+    var index  = 0;
     var hashes = [];
 
     for (var i = 0; i < _bundleList.length; i++)//For each bundle
@@ -393,7 +398,7 @@ function _obtainConfirmationOfHash(hashes)
             //Mark bundles as confirmed / pending
             for (var i = 0; i < _bundleList.length; i++)//For each bundle
             {
-                for  (var k=0;k < hashes.length;k++)
+                for  (var k=0; k < hashes.length; k++)
                 {
                     if (_bundleList[i][0].hash === hashes[k])
                     {
@@ -421,7 +426,7 @@ function _obtainConfirmationOfHash(hashes)
 
             //Reload all balances
             var addresses = [];
-            for (var i=0;i < _addressList.length;i++)
+            for (var i=0; i < _addressList.length; i++)
                 addresses.push( _addressList[i].address );
 
             iota.api.getBalances(addresses, 100, function(error, balances)
@@ -430,7 +435,7 @@ function _obtainConfirmationOfHash(hashes)
                     console.error(error);
                 else
                 {
-                    for (var i=0;i < balances.length;i++)
+                    for (var i=0; i < balances.length; i++)
                         _addressList[i].confirmedBalance = parseInt(balances.balances[0]);
                 }
             })
@@ -1012,6 +1017,346 @@ const localAttachToTangle = function(trunkTransaction, branchTransaction, minWei
     })
 }
 
+//Patch for iota.lib.js
+const prepareTransfers2 = function(seed, transfers, options, callback)
+{
+    var self = this;
+    var addHMAC = false;
+    var addedHMAC = false;
+
+    // If no options provided, switch arguments
+    if (arguments.length === 3 && Object.prototype.toString.call(options) === "[object Function]") {
+        callback = options;
+        options = {};
+    }
+
+    // validate the seed
+    /*if (!inputValidator.isTrytes(seed)) {
+
+        return callback(errors.invalidSeed());
+    }
+
+    if (options.hasOwnProperty('hmacKey') && options.hmacKey) {
+
+        if(!inputValidator.isTrytes(options.hmacKey)) {
+            return callback(errors.invalidTrytes());
+        }
+        addHMAC = true;
+    }*/
+
+    // If message or tag is not supplied, provide it
+    // Also remove the checksum of the address if it's there after validating it
+    transfers.forEach(function(thisTransfer) {
+
+        thisTransfer.message = thisTransfer.message ? thisTransfer.message : '';
+        thisTransfer.obsoleteTag = thisTransfer.tag ? thisTransfer.tag : (thisTransfer.obsoleteTag ? thisTransfer.obsoleteTag : '');
+
+        if (addHMAC && thisTransfer.value > 0) {
+            thisTransfer.message = nullHashTrytes + thisTransfer.message;
+            addedHMAC = true;
+        }
+
+        // If address with checksum, validate it
+        if (thisTransfer.address.length === 90) {
+
+            if (!iota.utils.isValidChecksum(thisTransfer.address)) {
+                return callback(errors.invalidChecksum(thisTransfer.address));
+            }
+        }
+
+        thisTransfer.address = thisTransfer.address.slice(0, 81);
+    })
+
+    // Input validation of transfers object
+    /*if (!inputValidator.isTransfersArray(transfers)) {
+        return callback(errors.invalidTransfers());
+    }*/
+
+    // If inputs provided, validate the format
+    /*if (options.inputs && !inputValidator.isInputs(options.inputs)) {
+        return callback(errors.invalidInputs());
+    }*/
+
+    var remainderAddress = options.address || null;
+    var chosenInputs     = options.inputs || [];
+    var security         = options.security || _security;
+
+    // Create a new bundle
+    var bundle = new Bundle();
+
+    var totalValue = 0;
+    var signatureFragments = [];
+    var tag;
+
+    //
+    //  Iterate over all transfers, get totalValue
+    //  and prepare the signatureFragments, message and tag
+    //
+    for (var i = 0; i < transfers.length; i++) {
+
+        var signatureMessageLength = 1;
+
+        // If message longer than 2187 trytes, increase signatureMessageLength (add 2nd transaction)
+        if (transfers[i].message.length > 2187) {
+
+            // Get total length, message / maxLength (2187 trytes)
+            signatureMessageLength += Math.floor(transfers[i].message.length / 2187);
+
+            var msgCopy = transfers[i].message;
+
+            // While there is still a message, copy it
+            while (msgCopy) {
+
+                var fragment = msgCopy.slice(0, 2187);
+                msgCopy = msgCopy.slice(2187, msgCopy.length);
+
+                // Pad remainder of fragment
+                for (var j = 0; fragment.length < 2187; j++) {
+                    fragment += '9';
+                }
+
+                signatureFragments.push(fragment);
+            }
+        } else {
+            // Else, get single fragment with 2187 of 9's trytes
+            var fragment = '';
+
+            if (transfers[i].message) {
+                fragment = transfers[i].message.slice(0, 2187)
+            }
+
+            for (var j = 0; fragment.length < 2187; j++) {
+                fragment += '9';
+            }
+
+            signatureFragments.push(fragment);
+        }
+
+        // get current timestamp in seconds
+        var timestamp = Math.floor(Date.now() / 1000);
+
+        // If no tag defined, get 27 tryte tag.
+        tag = transfers[i].obsoleteTag ? transfers[i].obsoleteTag : '999999999999999999999999999';
+
+        // Pad for required 27 tryte length
+        for (var j = 0; tag.length < 27; j++) {
+            tag += '9';
+        }
+
+        // Add first entries to the bundle
+        // Slice the address in case the user provided a checksummed one
+        bundle.addEntry(signatureMessageLength, transfers[i].address, transfers[i].value, tag, timestamp)
+        // Sum up total value
+        totalValue += parseInt(transfers[i].value);
+    }
+
+    // Get inputs if we are sending tokens
+    if (totalValue) {
+
+        //  Case 1: user provided inputs
+        //
+        //  Validate the inputs by calling getBalances
+        if (options.inputs) {
+
+            // Get list if addresses of the provided inputs
+            var inputsAddresses = [];
+            options.inputs.forEach(function(inputEl) {
+                inputsAddresses.push(inputEl.address);
+            })
+
+            var confirmedInputs = options.inputs;
+
+            addRemainder(confirmedInputs);
+        }
+
+        //  Case 2: Get inputs deterministically
+        //
+        //  If no inputs provided, derive the addresses from the seed and
+        //  confirm that the inputs exceed the threshold
+        else
+        {            
+            callback(false);
+            return;
+        }
+    } else {
+
+        // If no input required, don't sign and simply finalize the bundle
+        bundle.finalize();
+        bundle.addTrytes(signatureFragments);
+
+        var bundleTrytes = []
+        bundle.bundle.forEach(function(tx) {
+            bundleTrytes.push(iota.utils.transactionTrytes(tx))
+        })
+
+        return callback(null, bundleTrytes.reverse());
+    }
+
+
+
+    function addRemainder(inputs) {
+
+        var totalTransferValue = totalValue;
+        for (var i = 0; i < inputs.length; i++) {
+
+            var thisBalance = inputs[i].balance;
+            var toSubtract = 0 - thisBalance;
+            var timestamp = Math.floor(Date.now() / 1000);
+
+            // Add input as bundle entry
+            bundle.addEntry(inputs[i].security, inputs[i].address, toSubtract, tag, timestamp);
+
+            // If there is a remainder value
+            // Add extra output to send remaining funds to
+            if (thisBalance >= totalTransferValue) {
+
+                var remainder = thisBalance - totalTransferValue;
+
+                // If user has provided remainder address
+                // Use it to send remaining funds to
+                if (remainder > 0 && remainderAddress) {
+
+                    // Remainder bundle entry
+                    bundle.addEntry(1, remainderAddress, remainder, tag, timestamp);
+
+                    // Final function for signing inputs
+                    signInputsAndReturn(inputs);
+                }
+                else if (remainder > 0) {
+
+                    var startIndex = 0;
+                    for(var k = 0; k < inputs.length; k++) {
+                        startIndex = Math.max(inputs[k].keyIndex, startIndex);
+                    }
+
+                    startIndex++;
+
+                    // Generate a new Address by calling getNewAddress
+                    self.getNewAddress(seed, {'index': startIndex, 'security': security}, function(error, address) {
+
+                        if (error) return callback(error)
+
+                        var timestamp = Math.floor(Date.now() / 1000);
+
+                        // Remainder bundle entry
+                        bundle.addEntry(1, address, remainder, tag, timestamp);
+
+                        // Final function for signing inputs
+                        signInputsAndReturn(inputs);
+                    })
+                } else {
+
+                    // If there is no remainder, do not add transaction to bundle
+                    // simply sign and return
+                    signInputsAndReturn(inputs);
+                }
+
+            // If multiple inputs provided, subtract the totalTransferValue by
+            // the inputs balance
+            } else {
+
+                totalTransferValue -= thisBalance;
+            }
+        }
+    }
+
+
+
+    function signInputsAndReturn(inputs) {
+
+        bundle.finalize();
+        bundle.addTrytes(signatureFragments);
+
+        //  SIGNING OF INPUTS
+        //
+        //  Here we do the actual signing of the inputs
+        //  Iterate over all bundle transactions, find the inputs
+        //  Get the corresponding private key and calculate the signatureFragment
+        for (var i = 0; i < bundle.bundle.length; i++) {
+
+            if (bundle.bundle[i].value < 0) {
+
+                var thisAddress = bundle.bundle[i].address;
+
+                // Get the corresponding keyIndex and security of the address
+                var keyIndex;
+                var keySecurity;
+                for (var k = 0; k < inputs.length; k++) {
+
+                    if (inputs[k].address === thisAddress) {
+
+                        keyIndex = inputs[k].keyIndex;
+                        keySecurity = inputs[k].security ? inputs[k].security : security;
+                        break;
+                    }
+                }
+
+                var bundleHash = bundle.bundle[i].bundle;
+
+                // Get corresponding private key of address
+                var key = Signing.key(Converter.trits(seed), keyIndex, keySecurity);
+
+                //  Get the normalized bundle hash
+                var normalizedBundleHash = bundle.normalizedBundle(bundleHash);
+                var normalizedBundleFragments = [];
+
+                // Split hash into 3 fragments
+                for (var l = 0; l < 3; l++) {
+                    normalizedBundleFragments[l] = normalizedBundleHash.slice(l * 27, (l + 1) * 27);
+                }
+
+                //  First 6561 trits for the firstFragment
+                var firstFragment = key.slice(0, 6561);
+
+                //  First bundle fragment uses the first 27 trytes
+                var firstBundleFragment = normalizedBundleFragments[0];
+
+                //  Calculate the new signatureFragment with the first bundle fragment
+                var firstSignedFragment = Signing.signatureFragment(firstBundleFragment, firstFragment);
+
+                //  Convert signature to trytes and assign the new signatureFragment
+                bundle.bundle[i].signatureMessageFragment = Converter.trytes(firstSignedFragment);
+
+                // if user chooses higher than 27-tryte security
+                // for each security level, add an additional signature
+                for (var j = 1; j < keySecurity; j++) {
+
+                    //  Because the signature is > 2187 trytes, we need to
+                    //  find the subsequent transaction to add the remainder of the signature
+                    //  Same address as well as value = 0 (as we already spent the input)
+                    if (bundle.bundle[i + j].address === thisAddress && bundle.bundle[i + j].value === 0) {
+
+                        // Use the next 6561 trits
+                        var nextFragment = key.slice(6561 * j,  (j + 1) * 6561);
+
+                        var nextBundleFragment = normalizedBundleFragments[j];
+
+                        //  Calculate the new signature
+                        var nextSignedFragment = Signing.signatureFragment(nextBundleFragment, nextFragment);
+
+                        //  Convert signature to trytes and assign it again to this bundle entry
+                        bundle.bundle[i + j].signatureMessageFragment = Converter.trytes(nextSignedFragment);
+                    }
+                }
+            }
+        }
+
+        if (addedHMAC) {
+            var hmac = new HMAC(options.hmacKey);
+            hmac.addHMAC(bundle);
+        }
+
+        var bundleTrytes = []
+
+        // Convert all bundle entries into trytes
+        bundle.bundle.forEach(function(tx) {
+            bundleTrytes.push(iota.utils.transactionTrytes(tx))
+        })
+
+        return callback(null, bundleTrytes.reverse());
+    }
+}
+
 //
 function _calculateAddresses(seed, index, total, checksum, security, addresses, callback)
 {
@@ -1145,12 +1490,15 @@ module.exports.initializeIOTA = function(security, depth, minWeightMagnitude)
     _localProofOfWork = true;
 
     //Patch iota.lib.js
-    //new isPromotable() function with callback
+    //Add new isPromotable() function with callback
     iota.api.isPromotable2 = function(tail, callback) {
         var self = this;
         var command = apiCommands.checkConsistency(tail);
         self.sendCommand(command, callback);
     }
+
+    //Add new prepareTransfers2() function. Same as prepareTransfers() without requiring Internet access
+    iota.api.prepareTransfers2 = prepareTransfers2;
 
     //Patch makeRequest.js
     iota.api._makeRequest = new makeRequest2();
@@ -1382,7 +1730,13 @@ module.exports.signPreBundle = function(seed, preBundle, callback)
     if (typeof preBundle.remainder !== 'undefined')
         remainderAddress = preBundle.remainder.address;
 
-    iota.api.prepareTransfers2(seed, preBundle.outputs, {'inputs': preBundle.inputs, 'address': remainderAddress}, callback);
+    iota.api.prepareTransfers2(seed, preBundle.outputs, {'inputs': preBundle.inputs, 'address': remainderAddress}, function(error, signedBundle)
+    {
+        var signedBundleString = signedBundle[0];
+        for (var i=1; i < signedBundle.length;i++)
+            signedBundleString += signedBundle[i];
+        callback(error, signedBundleString);
+    });
 }
 
 //
@@ -1413,8 +1767,13 @@ module.exports.sendPreBundle = function(seed, preBundle, callback)
 //
 module.exports.sendSignedBundle = function(signedBundle, callback)
 {
-    options = {};
-    iota.api.sendTrytes(signedBundle, _depth, _minWeightMagnitude, options, callback);
+    var options = {};
+
+    var trytes = [];
+    for (var i=0;i < signedBundle.length;i+=2673)
+        trytes.push( signedBundle.slice(i, i+2673-1) );
+
+    iota.api.sendTrytes(trytes, _depth, _minWeightMagnitude, options, callback);
 }
 
 //
